@@ -1,0 +1,362 @@
+[
+  {
+    "id": "asset-logo-main",
+    "name": "GIMA Official Logo",
+    "category": "Logos",
+    "url": "https://gim-academy.com/wp-content/uploads/2023/11/GLOBAL_IMA_LOGO_ALT_ALT-1-1600x362-1.png",
+    "aspectRatio": "16:4",
+    "description": "Primary high-resolution Global Integrative Medicine Academy logo with gold emblem and deep navy typography."
+  },
+  {
+    "id": "asset-favicon",
+    "name": "GIMA Emblem Favicon",
+    "category": "Logos",
+    "url": "https://gim-academy.com/wp-content/uploads/2023/11/gima-favicon.png",
+    "aspectRatio": "1:1",
+    "description": "Square official GIMA emblem icon (192x192)."
+  },
+  {
+    "id": "asset-instructor-dr-meschino",
+    "name": "Dr. James Meschino (Lead Instructor)",
+    "category": "Instructor imagery",
+    "url": "https://gim-academy.com/wp-content/plugins/gima-course-details/assets/images/dr-meschino.png",
+    "aspectRatio": "1:1",
+    "description": "Dr. James Meschino, DC, MS, ROHP - Academic Director and Lead Faculty for GIMA ROHP Certification."
+  },
+  {
+    "id": "asset-online-training",
+    "name": "Online Clinical Training Banner",
+    "category": "Course imagery",
+    "url": "https://gim-academy.com/wp-content/plugins/gima-course-details/assets/images/Online-Training.jpg",
+    "aspectRatio": "16:9",
+    "description": "Professional training banner featuring clinical healthcare practitioner engaging with digital learning."
+  },
+  {
+    "id": "asset-b3597c755809",
+    "name": "GIMA LOGO",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2023/11/GLOBAL_IMA_LOGO_ALT_ALT-1-1600x362-1.png",
+    "sourceUrl": "https://gim-academy.com/",
+    "description": "Extracted from The Only Fast-Track Nutrition Certification Developed Exclusively for Healthcare Professionals"
+  },
+  {
+    "id": "asset-008e0bc01559",
+    "name": "The Only Fast-Track Nutrition Certification Developed Exclus",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2023/12/main-section-banner-1.webp",
+    "sourceUrl": "https://gim-academy.com/",
+    "description": "Extracted from The Only Fast-Track Nutrition Certification Developed Exclusively for Healthcare Professionals"
+  },
+  {
+    "id": "asset-53f5181f0301",
+    "name": "The Only Fast-Track Nutrition Certification Developed Exclus",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2023/12/certi1.webp",
+    "sourceUrl": "https://gim-academy.com/",
+    "description": "Extracted from The Only Fast-Track Nutrition Certification Developed Exclusively for Healthcare Professionals"
+  },
+  {
+    "id": "asset-20e7df8f631b",
+    "name": "The Only Fast-Track Nutrition Certification Developed Exclus",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2023/12/garden-_learning.png",
+    "sourceUrl": "https://gim-academy.com/",
+    "description": "Extracted from The Only Fast-Track Nutrition Certification Developed Exclusively for Healthcare Professionals"
+  },
+  {
+    "id": "asset-ed94c1b7951e",
+    "name": "The Only Fast-Track Nutrition Certification Developed Exclus",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2025/05/Hero-banner.png",
+    "sourceUrl": "https://gim-academy.com/",
+    "description": "Extracted from The Only Fast-Track Nutrition Certification Developed Exclusively for Healthcare Professionals"
+  },
+  {
+    "id": "asset-23a43a5a8fcf",
+    "name": "The Only Fast-Track Nutrition Certification Developed Exclus",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2023/12/health-professional-e1598367120815.png",
+    "sourceUrl": "https://gim-academy.com/",
+    "description": "Extracted from The Only Fast-Track Nutrition Certification Developed Exclusively for Healthcare Professionals"
+  },
+  {
+    "id": "asset-5c4c672a31c6",
+    "name": "The Only Fast-Track Nutrition Certification Developed Exclus",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2023/12/Untitled-design-1.png",
+    "sourceUrl": "https://gim-academy.com/",
+    "description": "Extracted from The Only Fast-Track Nutrition Certification Developed Exclusively for Healthcare Professionals"
+  },
+  {
+    "id": "asset-01480e2c46ef",
+    "name": "The Only Fast-Track Nutrition Certification Developed Exclus",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2023/12/pp_banner_dotted_shape.png",
+    "sourceUrl": "https://gim-academy.com/",
+    "description": "Extracted from The Only Fast-Track Nutrition Certification Developed Exclusively for Healthcare Professionals"
+  },
+  {
+    "id": "asset-06061392ad39",
+    "name": "The Only Fast-Track Nutrition Certification Developed Exclus",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2024/12/Dr.-Michel-Dupuis.jpeg",
+    "sourceUrl": "https://gim-academy.com/",
+    "description": "Extracted from The Only Fast-Track Nutrition Certification Developed Exclusively for Healthcare Professionals"
+  },
+  {
+    "id": "asset-c206087c3354",
+    "name": "The Only Fast-Track Nutrition Certification Developed Exclus",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2024/12/Dr.-Kelly-Kramp.jpeg",
+    "sourceUrl": "https://gim-academy.com/",
+    "description": "Extracted from The Only Fast-Track Nutrition Certification Developed Exclusively for Healthcare Professionals"
+  },
+  {
+    "id": "asset-2dc71afd8e63",
+    "name": "The Only Fast-Track Nutrition Certification Developed Exclus",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2023/12/1670601639083-1.jpg",
+    "sourceUrl": "https://gim-academy.com/",
+    "description": "Extracted from The Only Fast-Track Nutrition Certification Developed Exclusively for Healthcare Professionals"
+  },
+  {
+    "id": "asset-52700d7b442d",
+    "name": "Savvas-Kattamis",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2023/12/1655562032284-1.jpg",
+    "sourceUrl": "https://gim-academy.com/",
+    "description": "Extracted from The Only Fast-Track Nutrition Certification Developed Exclusively for Healthcare Professionals"
+  },
+  {
+    "id": "asset-b2d6f00dc676",
+    "name": "The Only Fast-Track Nutrition Certification Developed Exclus",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2023/12/1544019977712-1.jpg",
+    "sourceUrl": "https://gim-academy.com/",
+    "description": "Extracted from The Only Fast-Track Nutrition Certification Developed Exclusively for Healthcare Professionals"
+  },
+  {
+    "id": "asset-2b14b71f0fb3",
+    "name": "GIMA LOGO",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2023/11/GLOBAL_IMA_LOGO_ALT_ALT-1-1600x362-1-1024x232.png",
+    "sourceUrl": "https://gim-academy.com/",
+    "description": "Extracted from The Only Fast-Track Nutrition Certification Developed Exclusively for Healthcare Professionals"
+  },
+  {
+    "id": "asset-bb4c6deafa71",
+    "name": "Become a Registered Orthomolecular Health Practitioner (ROHP",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2023/11/4_Home_Doctors_Online_Consultation-Services.jpg",
+    "sourceUrl": "https://gim-academy.com/rohp-certification/",
+    "description": "Extracted from Become a Registered Orthomolecular Health Practitioner (ROHP)"
+  },
+  {
+    "id": "asset-55905d18c578",
+    "name": "Become a Registered Orthomolecular Health Practitioner (ROHP",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2023/12/healthcare-training-e1703754172805-1024x778.jpg",
+    "sourceUrl": "https://gim-academy.com/rohp-certification/",
+    "description": "Extracted from Become a Registered Orthomolecular Health Practitioner (ROHP)"
+  },
+  {
+    "id": "asset-c025bb85d990",
+    "name": "Doctor Teams",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2023/12/Untitled-design-2-1.png",
+    "sourceUrl": "https://gim-academy.com/rohp-certification/",
+    "description": "Extracted from Become a Registered Orthomolecular Health Practitioner (ROHP)"
+  },
+  {
+    "id": "asset-c572af5566d2",
+    "name": "Become a Registered Orthomolecular Health Practitioner (ROHP",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2023/12/Untitled-eBook.jpg",
+    "sourceUrl": "https://gim-academy.com/rohp-certification/",
+    "description": "Extracted from Become a Registered Orthomolecular Health Practitioner (ROHP)"
+  },
+  {
+    "id": "asset-06d2436cd949",
+    "name": "101 Advanced Nutritional Medicine – Essentials of Metabolism",
+    "category": "Course imagery",
+    "url": "https://gim-academy.com/wp-content/plugins/gima-course-details/assets/images/Online-Training.jpg",
+    "sourceUrl": "https://gim-academy.com/101-course-details/",
+    "description": "Extracted from 101 Advanced Nutritional Medicine – Essentials of Metabolism and Theories of Aging"
+  },
+  {
+    "id": "asset-75a3771555a9",
+    "name": "Dr. James Meschino",
+    "category": "Course imagery",
+    "url": "https://gim-academy.com/wp-content/plugins/gima-course-details/assets/images/dr-meschino.png",
+    "sourceUrl": "https://gim-academy.com/101-course-details/",
+    "description": "Extracted from 101 Advanced Nutritional Medicine – Essentials of Metabolism and Theories of Aging"
+  },
+  {
+    "id": "asset-9555ab0c63f6",
+    "name": "free-course1",
+    "category": "Course imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2023/12/2-5.png",
+    "sourceUrl": "https://gim-academy.com/free-courses/",
+    "description": "Extracted from Nutritional Medicine Free Courses"
+  },
+  {
+    "id": "asset-f8e87654e9b6",
+    "name": "free-course2",
+    "category": "Course imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2023/12/3-2.png",
+    "sourceUrl": "https://gim-academy.com/free-courses/",
+    "description": "Extracted from Nutritional Medicine Free Courses"
+  },
+  {
+    "id": "asset-6e57a08c8230",
+    "name": "About Global Integrative Medicine Academy",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2023/12/5-1-e1703240581114.png",
+    "sourceUrl": "https://gim-academy.com/about/",
+    "description": "Extracted from About Global Integrative Medicine Academy"
+  },
+  {
+    "id": "asset-8a82ad2b5594",
+    "name": "About Global Integrative Medicine Academy",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2023/12/4-3-e1703241359696.png",
+    "sourceUrl": "https://gim-academy.com/about/",
+    "description": "Extracted from About Global Integrative Medicine Academy"
+  },
+  {
+    "id": "asset-d658f0be33f0",
+    "name": "About Global Integrative Medicine Academy",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2023/12/Untitled-design-5.png",
+    "sourceUrl": "https://gim-academy.com/about/",
+    "description": "Extracted from About Global Integrative Medicine Academy"
+  },
+  {
+    "id": "asset-a1ed39331d87",
+    "name": "Nutrition Certification for Chiropractors",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2025/04/GIMA-LinkedIn-Landing-Page-2.png",
+    "sourceUrl": "https://gim-academy.com/nutrition-certification-for-chiropractors/",
+    "description": "Extracted from Nutrition Certification for Chiropractors"
+  },
+  {
+    "id": "asset-ea4f4129f0a2",
+    "name": "Confidential Nutrition Screening Questionnaire",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2024/01/Confidential-Nutrition-Screening-Questionnaire.png",
+    "sourceUrl": "https://gim-academy.com/assessment-toolkit/",
+    "description": "Extracted from Assessment Toolkit"
+  },
+  {
+    "id": "asset-b9611ddda2b4",
+    "name": "Dietary Assessment",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2024/01/Dietary-Assessment.png",
+    "sourceUrl": "https://gim-academy.com/assessment-toolkit/",
+    "description": "Extracted from Assessment Toolkit"
+  },
+  {
+    "id": "asset-d23d375d313e",
+    "name": "Assessment Toolkit",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2024/01/Supplements-Medications-Surgeries.png",
+    "sourceUrl": "https://gim-academy.com/assessment-toolkit/",
+    "description": "Extracted from Assessment Toolkit"
+  },
+  {
+    "id": "asset-52336c928092",
+    "name": "Case History Form",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2024/01/Case-History-Form.png",
+    "sourceUrl": "https://gim-academy.com/assessment-toolkit/",
+    "description": "Extracted from Assessment Toolkit"
+  },
+  {
+    "id": "asset-bfe742933ea5",
+    "name": "Physical Exam Summary",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2024/01/Physical-Exam-Summary.png",
+    "sourceUrl": "https://gim-academy.com/assessment-toolkit/",
+    "description": "Extracted from Assessment Toolkit"
+  },
+  {
+    "id": "asset-4f192bf13035",
+    "name": "Anthropometric Conversion Tables",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2024/01/Anthropometric-Conversion-Tables.png",
+    "sourceUrl": "https://gim-academy.com/assessment-toolkit/",
+    "description": "Extracted from Assessment Toolkit"
+  },
+  {
+    "id": "asset-c1c29eae27c4",
+    "name": "Dietary And Lifestyle Recommendations",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2024/01/Dietary-And-Lifestyle-Recommendations.png",
+    "sourceUrl": "https://gim-academy.com/assessment-toolkit/",
+    "description": "Extracted from Assessment Toolkit"
+  },
+  {
+    "id": "asset-fe9302ef440e",
+    "name": "Practitioner Cardiovascular Disease Screening Form",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2024/01/Practitioner-Cardiovascular-Disease-Screening-Form.png",
+    "sourceUrl": "https://gim-academy.com/assessment-toolkit/",
+    "description": "Extracted from Assessment Toolkit"
+  },
+  {
+    "id": "asset-3642ea51ff15",
+    "name": "Three Important Anti Aging Supplements",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2023/12/immune-1-300x212-1.jpg",
+    "sourceUrl": "https://gim-academy.com/blog/three-important-anti-aging-supplements/",
+    "description": "Extracted from Three Important Anti Aging Supplements"
+  },
+  {
+    "id": "asset-499fea8c7154",
+    "name": "Three Important Anti Aging Supplements",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2023/12/student-laptop-1024x683.jpeg",
+    "sourceUrl": "https://gim-academy.com/blog/three-important-anti-aging-supplements/",
+    "description": "Extracted from Three Important Anti Aging Supplements"
+  },
+  {
+    "id": "asset-bcb92cbf7999",
+    "name": "Reishi Mushroom Extract And Immune Support",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2023/12/Reishi-1.png",
+    "sourceUrl": "https://gim-academy.com/blog/reishi-mushroom-extract-and-immune-support/",
+    "description": "Extracted from Reishi Mushroom Extract And Immune Support"
+  },
+  {
+    "id": "asset-575a7d15cab1",
+    "name": "Higher Omega 3 Fat Status Linked To Better Brain Blood Flow",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2023/12/omega-3-1.jpg",
+    "sourceUrl": "https://gim-academy.com/blog/higher-omega-3-fat-status-linked-to-better-brain-blood-flow/",
+    "description": "Extracted from Higher Omega 3 Fat Status Linked To Better Brain Blood Flow"
+  },
+  {
+    "id": "asset-cdae6607f930",
+    "name": "Vitamin D And Omega 3 Fats In The Prevention Of Depression",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2023/12/Vitamin-D.jpg",
+    "sourceUrl": "https://gim-academy.com/blog/vitamin-d-and-omega-3-fats-in-the-prevention-of-depression/",
+    "description": "Extracted from Vitamin D And Omega 3 Fats In The Prevention Of Depression"
+  },
+  {
+    "id": "asset-e3f98c812069",
+    "name": "How Melatonin Benefits The Human Body",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2023/12/melatonin.png",
+    "sourceUrl": "https://gim-academy.com/blog/how-melatonin-benefits-the-human-body/",
+    "description": "Extracted from How Melatonin Benefits The Human Body"
+  },
+  {
+    "id": "asset-04a5a3f957d0",
+    "name": "Health Benefits Of Coq10 Supplementation",
+    "category": "Website imagery",
+    "url": "https://gim-academy.com/wp-content/uploads/2023/12/unnamed.png",
+    "sourceUrl": "https://gim-academy.com/blog/health-benefits-of-coq10-supplementation/",
+    "description": "Extracted from Health Benefits Of Coq10 Supplementation"
+  }
+]
