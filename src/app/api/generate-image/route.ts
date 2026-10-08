@@ -15,7 +15,7 @@ import {
 } from '@/lib/promptComposer';
 
 export const runtime = 'nodejs';
-export const maxDuration = 60; // Allow sufficient time for generation
+export const maxDuration = 120; // 120s max duration for serverless compute on Vercel
 
 /**
  * Validates and sanitizes asset URLs to prevent SSRF
@@ -238,9 +238,17 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiGeneration
         );
 
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 45000); // 45s timeout guard
+        const timeout = setTimeout(() => controller.abort(), 90000); // 90s generous timeout guard
 
         try {
+          const reqPayload: any = {
+            model: selectedModel,
+            prompt: cleanPrompt,
+            n: 1,
+            size: pixelSize.sizeStr,
+            response_format: 'url',
+          };
+
           const pollRes = await fetch('https://gen.pollinations.ai/v1/images/generations', {
             method: 'POST',
             signal: controller.signal,
@@ -249,13 +257,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiGeneration
               'Content-Type': 'application/json',
               'User-Agent': 'GIMA-AI-Studio/1.0',
             },
-            body: JSON.stringify({
-              model: selectedModel,
-              prompt: cleanPrompt,
-              n: 1,
-              size: pixelSize.sizeStr,
-              response_format: 'b64_json',
-            }),
+            body: JSON.stringify(reqPayload),
           });
           clearTimeout(timeout);
 
@@ -281,21 +283,28 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiGeneration
           const pollData = await pollRes.json();
           const item = pollData.data?.[0];
 
+          let imageUrl: string | null = null;
           let imageDataUrl: string | null = null;
-          if (item?.b64_json) {
-            imageDataUrl = `data:image/png;base64,${item.b64_json}`;
-          } else if (item?.url) {
+
+          if (item?.url) {
+            imageUrl = item.url;
             imageDataUrl = item.url;
+          } else if (item?.b64_json) {
+            imageDataUrl = `data:image/png;base64,${item.b64_json}`;
+            imageUrl = imageDataUrl;
           }
 
-          if (!imageDataUrl) {
+          if (!imageUrl && !imageDataUrl) {
             throw new Error(`NO_IMAGE_DATA: Pollinations returned empty image payload for variation ${idx + 1}.`);
           }
 
           return {
             id: `var-poll-${Date.now()}-${idx + 1}`,
-            imageDataUrl,
-            mimeType: 'image/png',
+            imageUrl: imageUrl || imageDataUrl!,
+            imageDataUrl: imageDataUrl || imageUrl!,
+            mimeType: item?.media_type || 'image/jpeg',
+            width: pixelSize.width,
+            height: pixelSize.height,
             promptSummary,
           };
         } finally {
@@ -308,8 +317,11 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiGeneration
 
       const generatedVariations: {
         id: string;
+        imageUrl?: string;
         imageDataUrl: string;
         mimeType: string;
+        width?: number;
+        height?: number;
         promptSummary?: string;
       }[] = [];
 

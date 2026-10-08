@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gima-ai-studio-v1';
+const CACHE_NAME = 'gima-ai-studio-v2';
 const PRECACHE_ASSETS = [
   '/',
   '/manifest.json',
@@ -8,7 +8,9 @@ const PRECACHE_ASSETS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(PRECACHE_ASSETS);
+      return cache.addAll(PRECACHE_ASSETS).catch((err) => {
+        console.warn('[SW] Precache partial error (ignored):', err);
+      });
     }).then(() => self.skipWaiting())
   );
 });
@@ -19,6 +21,7 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME) {
+            console.log('[SW] Purging outdated cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
@@ -28,39 +31,68 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Only handle GET requests for navigation and static assets
-  if (event.request.method !== 'GET') return;
-  const url = new URL(event.request.url);
+  const request = event.request;
 
-  // Avoid caching non-same-origin or API calls
-  if (url.origin !== self.location.origin) return;
-  if (url.pathname.startsWith('/api/')) return;
+  // 1. Never intercept non-GET requests (e.g. POST /api/generate-image)
+  if (request.method !== 'GET') {
+    return;
+  }
 
+  const url = new URL(request.url);
+
+  // 2. Never intercept external domains (e.g. media.pollinations.ai, gen.pollinations.ai)
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+
+  // 3. Never intercept API routes (/api/*) - allow direct network pass-through
+  if (url.pathname.startsWith('/api/')) {
+    return;
+  }
+
+  // 4. Handle same-origin static navigation and shell assets with guaranteed valid Response
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
+    caches.match(request).then((cachedResponse) => {
       if (cachedResponse) {
-        // Return cached and update in background
-        fetch(event.request).then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponse));
-          }
-        }).catch(() => {});
+        // Return cached shell and update in background if possible
+        fetch(request)
+          .then((networkResponse) => {
+            if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+              caches.open(CACHE_NAME).then((cache) => cache.put(request, networkResponse));
+            }
+          })
+          .catch(() => {});
         return cachedResponse;
       }
-      return fetch(event.request).then((response) => {
-        if (!response || response.status !== 200 || response.type !== 'basic') {
-          return response;
-        }
-        const responseToCache = response.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
+
+      // Fetch from network
+      return fetch(request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+            const clone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
+          return networkResponse;
+        })
+        .catch(async () => {
+          // Fallback for navigation requests
+          if (request.mode === 'navigate') {
+            const fallback = await caches.match('/');
+            if (fallback) return fallback;
+          }
+
+          // Guaranteed valid Response: Never return undefined or null
+          return new Response('Network unavailable', {
+            status: 503,
+            statusText: 'Service Unavailable',
+            headers: { 'Content-Type': 'text/plain' }
+          });
         });
-        return response;
-      }).catch(() => {
-        // Fallback for navigation requests
-        if (event.request.mode === 'navigate') {
-          return caches.match('/');
-        }
+    }).catch(() => {
+      return new Response('Network error', {
+        status: 500,
+        statusText: 'Internal Error',
+        headers: { 'Content-Type': 'text/plain' }
       });
     })
   );

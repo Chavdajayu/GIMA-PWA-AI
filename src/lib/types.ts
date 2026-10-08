@@ -182,6 +182,7 @@ export interface ApiGenerationResponse {
   };
   variations?: {
     id: string;
+    imageUrl?: string;
     imageDataUrl: string;
     mimeType: string;
     width?: number;

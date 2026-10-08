@@ -48,38 +48,74 @@ export class PollinationsImageProvider implements ImageGenerationProvider {
     const modelToUse = this.selectedModel || 'tongyi-mai/z-image-turbo';
     onProgress?.('generating', `Generating variation ${variationIndex + 1} with ${modelToUse.split('/')[1] || modelToUse}...`, 50);
 
-    const response = await fetch('/api/generate-image', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        ...request,
-        provider: 'pollinations',
-        model: modelToUse,
-        variationIndex,
-        variationsCount: 1,
-      }),
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 90000); // 90s client timeout
 
-    const data: ApiGenerationResponse = await response.json();
+    let response: Response;
+    try {
+      response = await fetch('/api/generate-image', {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...request,
+          provider: 'pollinations',
+          model: modelToUse,
+          variationIndex,
+          variationsCount: 1,
+        }),
+      });
+    } catch (fetchErr: any) {
+      clearTimeout(timeout);
+      if (fetchErr.name === 'AbortError') {
+        const err = new Error(`Variation ${variationIndex + 1} timed out after 90 seconds. Please retry.`);
+        (err as any).code = 'TIMEOUT';
+        (err as any).retryable = true;
+        throw err;
+      }
+      const err = new Error(`Network failure connecting to generation endpoint: ${fetchErr.message || 'Server unreachable'}`);
+      (err as any).code = 'NETWORK_ERROR';
+      (err as any).retryable = true;
+      throw err;
+    } finally {
+      clearTimeout(timeout);
+    }
 
-    if (!response.ok || !data.success || !data.variations?.[0]) {
-      const errMsg = data.error?.message || `Variation ${variationIndex + 1} generation failed.`;
+    let data: ApiGenerationResponse | null = null;
+    try {
+      data = await response.json();
+    } catch {
+      // Non-JSON response (e.g. Vercel 502 HTML error page)
+    }
+
+    if (!response.ok || !data?.success || !data?.variations?.[0]) {
+      let errMsg = data?.error?.message;
+      if (!errMsg) {
+        if (response.status === 502) {
+          errMsg = `Vercel server responded with 502 Bad Gateway. Please retry variation ${variationIndex + 1}.`;
+        } else if (response.status === 504) {
+          errMsg = `Vercel function timed out (504). Please retry variation ${variationIndex + 1}.`;
+        } else {
+          errMsg = `Variation ${variationIndex + 1} generation failed (HTTP ${response.status}).`;
+        }
+      }
       const err = new Error(errMsg);
-      (err as any).code = data.error?.code || 'UNKNOWN';
-      (err as any).retryable = data.error?.retryable ?? false;
+      (err as any).code = data?.error?.code || (response.status === 502 ? 'UPSTREAM_OR_FUNCTION_ERROR' : 'UNKNOWN');
+      (err as any).retryable = data?.error?.retryable ?? true;
       throw err;
     }
 
     const v = data.variations[0];
+    const previewUrl = v.imageUrl || v.imageDataUrl;
     const modelName = data.provider?.model || modelToUse;
     const duration = data.metadata?.generationTimeMs || 0;
 
     return {
       id: v.id || `var-poll-${Date.now()}-${variationIndex + 1}`,
       variationNumber: variationIndex + 1,
-      previewImageUrl: v.imageDataUrl,
+      previewImageUrl: previewUrl,
       compositionHeadline: request.headline || `${request.course} — Excellence in Clinical Education`,
       compositionSubhead: request.extraPrompt
         ? `${request.course} — "${request.extraPrompt.slice(0, 60)}..."`

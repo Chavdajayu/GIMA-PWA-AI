@@ -31,8 +31,13 @@ function isApprovedAssetUrl(url: string): boolean {
     ) {
       return false;
     }
-    // Allow authoritative GIMA domain
-    return host === 'gim-academy.com' || host.endsWith('.gim-academy.com');
+    // Allow authoritative GIMA domain and Pollinations media CDN
+    return (
+      host === 'gim-academy.com' ||
+      host.endsWith('.gim-academy.com') ||
+      host === 'pollinations.ai' ||
+      host.endsWith('.pollinations.ai')
+    );
   } catch {
     return false;
   }

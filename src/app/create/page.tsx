@@ -391,11 +391,41 @@ function CreateCreativeContent() {
     createdAt: new Date().toISOString(),
   });
 
-  // Download Generated Image
-  const handleDownload = (dataUrl: string, varNum: number) => {
+  // Download Generated Image (Supports both Data URLs and CDN URLs)
+  const handleDownload = async (imageUrl: string, varNum: number) => {
+    const filename = `GIMA-${course.replace(/[^a-zA-Z0-9]/g, '_')}-var${varNum}.png`;
+    if (imageUrl.startsWith('data:')) {
+      const link = document.createElement('a');
+      link.href = imageUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      return;
+    }
+
+    try {
+      const res = await fetch(imageUrl);
+      if (res.ok) {
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+        return;
+      }
+    } catch {
+      // Fallback to proxy route
+    }
+
+    const proxyUrl = `/api/download-asset?url=${encodeURIComponent(imageUrl)}&filename=${encodeURIComponent(filename)}`;
     const link = document.createElement('a');
-    link.href = dataUrl;
-    link.download = `GIMA-${course.replace(/[^a-zA-Z0-9]/g, '_')}-var${varNum}.png`;
+    link.href = proxyUrl;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
