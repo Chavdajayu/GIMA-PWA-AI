@@ -8,20 +8,26 @@ import {
   AssetItem
 } from '@/lib/types';
 import { getBrandConfig, getKnowledgeForCourse, searchKnowledge } from '@/lib/knowledge';
-import { composeGenerationPrompt, mapAspectRatioToGemini } from '@/lib/promptComposer';
+import {
+  composeGenerationPrompt,
+  mapAspectRatioToGemini,
+  composePollinationsImagePrompt
+} from '@/lib/promptComposer';
 
 export const runtime = 'nodejs';
-export const maxDuration = 60; // Allow sufficient time for multi-variation generation
+export const maxDuration = 60; // Allow sufficient time for generation
 
 /**
  * Validates and sanitizes asset URLs to prevent SSRF
  */
 function isApprovedAssetUrl(url: string): boolean {
   if (!url || typeof url !== 'string') return false;
-  if (url.startsWith('data:image/png;base64,') ||
-      url.startsWith('data:image/jpeg;base64,') ||
-      url.startsWith('data:image/jpg;base64,') ||
-      url.startsWith('data:image/webp;base64,')) {
+  if (
+    url.startsWith('data:image/png;base64,') ||
+    url.startsWith('data:image/jpeg;base64,') ||
+    url.startsWith('data:image/jpg;base64,') ||
+    url.startsWith('data:image/webp;base64,')
+  ) {
     return true;
   }
   try {
@@ -48,7 +54,7 @@ function isApprovedAssetUrl(url: string): boolean {
 }
 
 /**
- * Converts approved asset to base64 inlineData part for Gemini
+ * Converts approved asset to base64 inlineData part
  */
 async function resolveAssetToPart(asset: AssetItem): Promise<{ inlineData: { mimeType: string; data: string } } | null> {
   const url = asset.url;
@@ -57,10 +63,9 @@ async function resolveAssetToPart(asset: AssetItem): Promise<{ inlineData: { mim
     return null;
   }
 
-  // Handle data URLs directly
-  if (url.startsWith('data:image/')) {
-    const matches = url.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
-    if (matches && matches[1] && matches[2]) {
+  if (url.startsWith('data:')) {
+    const matches = url.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    if (matches && matches.length === 3) {
       return {
         inlineData: {
           mimeType: matches[1],
@@ -70,14 +75,15 @@ async function resolveAssetToPart(asset: AssetItem): Promise<{ inlineData: { mim
     }
   }
 
-  // Handle approved remote HTTPS URLs
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
+
     const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'GIMA-AI-Studio/0.2 (Internal Marketing Suite)',
-      },
-      signal: AbortSignal.timeout(8000),
+      signal: controller.signal,
+      headers: { 'User-Agent': 'GIMA-AI-Studio/1.0' }
     });
+    clearTimeout(timeout);
 
     if (!res.ok) return null;
     const contentType = res.headers.get('content-type') || 'image/jpeg';
@@ -97,35 +103,76 @@ async function resolveAssetToPart(asset: AssetItem): Promise<{ inlineData: { mim
 }
 
 /**
+ * Maps aspect ratio to pixel dimensions for Pollinations API
+ */
+function mapAspectRatioToPixelSize(aspectRatio: string): { width: number; height: number; sizeStr: string } {
+  switch (aspectRatio) {
+    case '1:1':
+      return { width: 1024, height: 1024, sizeStr: '1024x1024' };
+    case '4:5':
+      return { width: 1024, height: 1280, sizeStr: '1024x1280' };
+    case '16:9':
+      return { width: 1280, height: 720, sizeStr: '1280x720' };
+    case '9:16':
+      return { width: 720, height: 1280, sizeStr: '720x1280' };
+    case 'A4':
+      return { width: 1024, height: 1448, sizeStr: '1024x1448' };
+    default:
+      return { width: 1024, height: 1024, sizeStr: '1024x1024' };
+  }
+}
+
+/**
  * GET /api/generate-image
  * Inspects provider status and configuration without exposing secrets
  */
 export async function GET(): Promise<NextResponse<ApiProviderStatus>> {
-  const hasKey = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim().length > 0);
-  const model = process.env.GEMINI_IMAGE_MODEL || 'gemini-nano-banana-2.1';
-  const size = process.env.GEMINI_IMAGE_SIZE || '1K';
+  const hasPollinations = Boolean(process.env.POLLINATIONS_API_KEY && process.env.POLLINATIONS_API_KEY.trim().length > 0);
+  const hasGemini = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim().length > 0);
+
+  let pollinationsBalance: number | undefined;
+  if (hasPollinations) {
+    try {
+      const bRes = await fetch('https://gen.pollinations.ai/account/balance', {
+        headers: { Authorization: `Bearer ${process.env.POLLINATIONS_API_KEY}` },
+        cache: 'no-store'
+      });
+      if (bRes.ok) {
+        const bData = await bRes.json();
+        pollinationsBalance = typeof bData.balance === 'number' ? bData.balance : bData.accountBalance?.total;
+      }
+    } catch {}
+  }
+
+  const defaultPollinationsModel = process.env.POLLINATIONS_IMAGE_MODEL || 'tongyi-mai/z-image-turbo';
 
   return NextResponse.json({
-    configured: hasKey,
-    provider: 'Google Gemini',
-    model,
-    size,
-    mode: hasKey ? 'real' : 'demo',
-    message: hasKey
-      ? `Gemini is configured via server environment (${model}). Real image generation active.`
-      : 'GEMINI_API_KEY is not configured on the server. Operating in Deterministic Preview mode.'
+    configured: hasPollinations || hasGemini,
+    provider: hasPollinations ? 'Pollinations AI' : 'Google Gemini',
+    model: hasPollinations ? defaultPollinationsModel : (process.env.GEMINI_IMAGE_MODEL || 'gemini-nano-banana-2.1'),
+    size: '1024x1024',
+    mode: hasPollinations ? 'real' : (hasGemini ? 'real' : 'demo'),
+    imageQuotaAvailable: hasPollinations,
+    recommendedMode: hasPollinations ? 'pollinations' : 'gemini-web-handoff',
+    pollinationsConfigured: hasPollinations,
+    pollinationsBalance,
+    message: hasPollinations
+      ? `Pollinations AI is active (${defaultPollinationsModel}${typeof pollinationsBalance === 'number' ? `, Balance: ${pollinationsBalance} Pollen` : ''}). Real image generation ready.`
+      : hasGemini
+      ? 'Gemini API key is configured. Google Free Tier limits image model requests to 0. Gemini Pro Web Handoff is active.'
+      : 'No API key configured on server. Operating in Demo Preview mode.'
   });
 }
 
 /**
  * POST /api/generate-image
- * Executes server-side GIMA knowledge retrieval, prompt composition, and Gemini image generation
+ * Executes server-side GIMA knowledge retrieval, prompt composition, and real image generation
  */
 export async function POST(req: NextRequest): Promise<NextResponse<ApiGenerationResponse>> {
   const startTime = Date.now();
 
   try {
-    const body: GenerationRequest = await req.json();
+    const body: GenerationRequest & { provider?: string; model?: string } = await req.json();
 
     // 1. Validation
     if (!body || !body.course) {
@@ -161,7 +208,156 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiGeneration
     const promptComposition = composeGenerationPrompt(body, brandConfig, retrievedKnowledge);
     const mappedRatio = promptComposition.mappedAspectRatio;
 
-    // 4. Resolve Approved Reference Assets (up to 4 assets to prevent payload explosion)
+    // Determine target provider:
+    // Default to Pollinations if configured and not explicitly requested otherwise
+    const pollinationsKey = process.env.POLLINATIONS_API_KEY?.trim();
+    const usePollinations = (body.provider === 'pollinations' || (!body.provider && Boolean(pollinationsKey))) && Boolean(pollinationsKey);
+
+    // ========================================================
+    // PATH A: POLLINATIONS REAL IMAGE GENERATION (PHASE 3 / 3.1)
+    // ========================================================
+    if (usePollinations && pollinationsKey) {
+      const selectedModel = body.model || process.env.POLLINATIONS_IMAGE_MODEL || 'tongyi-mai/z-image-turbo';
+      const pixelSize = mapAspectRatioToPixelSize(body.aspectRatio);
+
+      // Check if this request is for a specific variation index (from progressive client)
+      const isSpecificVariation = typeof body.variationIndex === 'number';
+      const targetIndices: number[] = isSpecificVariation
+        ? [body.variationIndex as number]
+        : Array.from({ length: Math.max(1, Math.min(4, body.variationsCount || 1)) }, (_, i) => i);
+
+      console.log(`[Pollinations API] Generating ${targetIndices.length} variation(s) (indices: ${targetIndices.join(',')}) using model: ${selectedModel}`);
+
+      // Helper function to generate a single variation
+      const generateSingle = async (idx: number) => {
+        const { prompt: cleanPrompt, summary: promptSummary } = composePollinationsImagePrompt(
+          body,
+          brandConfig,
+          retrievedKnowledge,
+          idx
+        );
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 45000); // 45s timeout guard
+
+        try {
+          const pollRes = await fetch('https://gen.pollinations.ai/v1/images/generations', {
+            method: 'POST',
+            signal: controller.signal,
+            headers: {
+              Authorization: `Bearer ${pollinationsKey}`,
+              'Content-Type': 'application/json',
+              'User-Agent': 'GIMA-AI-Studio/1.0',
+            },
+            body: JSON.stringify({
+              model: selectedModel,
+              prompt: cleanPrompt,
+              n: 1,
+              size: pixelSize.sizeStr,
+              response_format: 'b64_json',
+            }),
+          });
+          clearTimeout(timeout);
+
+          if (!pollRes.ok) {
+            const errText = await pollRes.text();
+            let parsedErr: any = null;
+            try { parsedErr = JSON.parse(errText); } catch {}
+            const msg = parsedErr?.error?.message || parsedErr?.message || errText || `Pollinations error (HTTP ${pollRes.status})`;
+
+            if (pollRes.status === 401) {
+              throw new Error(`INVALID_API_KEY: Pollinations API key was rejected. Verify server configuration.`);
+            } else if (pollRes.status === 402) {
+              throw new Error(`INSUFFICIENT_BALANCE: Your Pollinations balance is insufficient. Current balance can be viewed in Settings.`);
+            } else if (pollRes.status === 429) {
+              throw new Error(`RATE_LIMITED: Pollinations rate limit exceeded. Please wait a moment.`);
+            } else if (pollRes.status === 404) {
+              throw new Error(`MODEL_NOT_FOUND: Model "${selectedModel}" is unavailable in Pollinations catalog.`);
+            } else {
+              throw new Error(`POLLINATIONS_ERROR (${pollRes.status}): ${msg}`);
+            }
+          }
+
+          const pollData = await pollRes.json();
+          const item = pollData.data?.[0];
+
+          let imageDataUrl: string | null = null;
+          if (item?.b64_json) {
+            imageDataUrl = `data:image/png;base64,${item.b64_json}`;
+          } else if (item?.url) {
+            imageDataUrl = item.url;
+          }
+
+          if (!imageDataUrl) {
+            throw new Error(`NO_IMAGE_DATA: Pollinations returned empty image payload for variation ${idx + 1}.`);
+          }
+
+          return {
+            id: `var-poll-${Date.now()}-${idx + 1}`,
+            imageDataUrl,
+            mimeType: 'image/png',
+            promptSummary,
+          };
+        } finally {
+          clearTimeout(timeout);
+        }
+      };
+
+      // Run variations concurrently with Promise.allSettled
+      const settleResults = await Promise.allSettled(targetIndices.map((idx) => generateSingle(idx)));
+
+      const generatedVariations: {
+        id: string;
+        imageDataUrl: string;
+        mimeType: string;
+        promptSummary?: string;
+      }[] = [];
+
+      let firstError: Error | null = null;
+      for (const res of settleResults) {
+        if (res.status === 'fulfilled') {
+          generatedVariations.push(res.value);
+        } else if (!firstError) {
+          firstError = res.reason;
+        }
+      }
+
+      if (generatedVariations.length === 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: 'GENERATION_FAILED',
+              message: firstError?.message || 'Pollinations did not return image data for the requested prompt.',
+              retryable: true,
+            },
+          },
+          { status: 502 }
+        );
+      }
+
+      const duration = Date.now() - startTime;
+
+      return NextResponse.json({
+        success: true,
+        provider: {
+          id: 'pollinations',
+          model: selectedModel,
+        },
+        variations: generatedVariations,
+        metadata: {
+          course: body.course,
+          creativeType: body.creativeType,
+          aspectRatio: body.aspectRatio,
+          generationTimeMs: duration,
+        },
+      });
+    }
+
+    // ========================================================
+    // PATH B: GOOGLE GEMINI API GENERATION (PHASE 2)
+    // ========================================================
+    // 4. Resolve Approved Reference Assets (up to 4 assets)
     const assetParts: { inlineData: { mimeType: string; data: string } }[] = [];
     if (body.referenceImages && Array.isArray(body.referenceImages)) {
       const topAssets = body.referenceImages.slice(0, 4);
@@ -173,26 +369,24 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiGeneration
       }
     }
 
-    // 5. Check API Key
     const apiKey = process.env.GEMINI_API_KEY;
     const modelName = process.env.GEMINI_IMAGE_MODEL || 'gemini-nano-banana-2.1';
 
-    // If API key is not configured, return clear structured status allowing client demo fallback
     if (!apiKey || apiKey.trim().length === 0) {
-      return NextResponse.json({
-        success: false,
-        error: {
-          code: 'MISSING_API_KEY',
-          message: 'Gemini is not connected yet. Configure GEMINI_API_KEY in server environment variables.',
-          retryable: false
-        }
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'MISSING_API_KEY',
+            message: 'Neither Pollinations nor Gemini API key is configured. Use Gemini Pro Web Handoff or Demo Preview.',
+            retryable: false,
+          },
+        },
+        { status: 400 }
+      );
     }
 
-    // 6. Execute Real Gemini Generation via @google/genai
     const ai = new GoogleGenAI({ apiKey });
-
-    // Construct multimodal content payload
     const contents: any[] = [
       ...assetParts,
       { text: promptComposition.userPrompt }
@@ -206,7 +400,6 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiGeneration
       promptSummary?: string;
     }[] = [];
 
-    // Controlled generation loop for requested variations
     for (let i = 0; i < targetVariations; i++) {
       try {
         console.log(`[Gemini API] Requesting variation ${i + 1}/${targetVariations} with model ${modelName}...`);
@@ -219,11 +412,10 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiGeneration
             imageConfig: {
               aspectRatio: mappedRatio,
               imageSize: process.env.GEMINI_IMAGE_SIZE || '1K',
-            }
-          }
+            },
+          },
         });
 
-        // Find image parts in response
         const candidate = response.candidates?.[0];
         let foundImage = false;
 
@@ -236,7 +428,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiGeneration
                 id: `var-${Date.now()}-${i + 1}`,
                 imageDataUrl: dataUrl,
                 mimeType: mime,
-                promptSummary: promptComposition.summary
+                promptSummary: promptComposition.summary,
               });
               foundImage = true;
               break;
@@ -249,11 +441,9 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiGeneration
         }
       } catch (callErr: any) {
         console.error(`[Gemini API] Error during generation call ${i + 1}:`, callErr);
-        // If first variation failed, rethrow to be caught by outer error handler
         if (i === 0) {
           throw callErr;
         }
-        // If secondary variations failed due to rate limit, stop and return what succeeded
         break;
       }
     }
@@ -265,8 +455,8 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiGeneration
           error: {
             code: 'INVALID_IMAGE_RESPONSE',
             message: 'Gemini model did not return image data for the requested brief.',
-            retryable: true
-          }
+            retryable: true,
+          },
         },
         { status: 502 }
       );
@@ -278,41 +468,54 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiGeneration
       success: true,
       provider: {
         id: 'gemini',
-        model: modelName
+        model: modelName,
       },
       variations: generatedVariations,
       metadata: {
         course: body.course,
         creativeType: body.creativeType,
         aspectRatio: body.aspectRatio,
-        generationTimeMs: duration
-      }
+        generationTimeMs: duration,
+      },
     });
-
   } catch (error: any) {
     console.error('[Generate Image Route Error]:', error);
 
-    const errorMsg = error?.message || 'An unexpected error occurred during creative generation.';
+    let displayMessage = error?.message || 'An unexpected error occurred during creative generation.';
+    try {
+      if (typeof displayMessage === 'string' && displayMessage.trim().startsWith('{')) {
+        const parsed = JSON.parse(displayMessage);
+        if (parsed?.error?.message) {
+          displayMessage = parsed.error.message;
+        }
+      }
+    } catch {}
+
     let errorCode = 'UNKNOWN';
     let retryable = false;
 
-    if (errorMsg.includes('API key') || errorMsg.includes('API_KEY_INVALID') || errorMsg.includes('unauthenticated')) {
+    if (displayMessage.includes('INVALID_API_KEY') || displayMessage.includes('API key') || displayMessage.includes('unauthenticated')) {
       errorCode = 'INVALID_API_KEY';
+      displayMessage = 'API key is invalid or not authorized. Check your configuration in .env.local.';
       retryable = false;
-    } else if (errorMsg.includes('429') || errorMsg.includes('quota') || errorMsg.includes('rate limit')) {
+    } else if (displayMessage.includes('INSUFFICIENT_BALANCE') || displayMessage.includes('402')) {
+      errorCode = 'INSUFFICIENT_BALANCE';
+      displayMessage = 'Your Pollinations account balance is insufficient for image generation. Check balance in Settings.';
+      retryable = false;
+    } else if (displayMessage.includes('429') || displayMessage.includes('quota') || displayMessage.includes('rate limit') || displayMessage.includes('RESOURCE_EXHAUSTED')) {
       errorCode = 'RATE_LIMITED';
+      if (displayMessage.includes('limit: 0')) {
+        displayMessage = 'Google Gemini image generation model has quota limit: 0 on Free-Tier projects. Switch to Pollinations AI or Gemini Pro Web Handoff.';
+      } else {
+        displayMessage = 'Rate limit exceeded. Please retry in a moment or switch to Gemini Pro Web Handoff.';
+      }
       retryable = true;
-    } else if (errorMsg.includes('model') && (errorMsg.includes('not found') || errorMsg.includes('unsupported'))) {
+    } else if (displayMessage.includes('MODEL_NOT_FOUND') || displayMessage.includes('model')) {
       errorCode = 'MODEL_UNAVAILABLE';
+      displayMessage = 'Selected model is unavailable. Choose another model from the live catalog.';
       retryable = false;
-    } else if (errorMsg.includes('safety') || errorMsg.includes('blocked') || errorMsg.includes('content policy')) {
-      errorCode = 'CONTENT_REJECTED';
-      retryable = false;
-    } else if (errorMsg.includes('timeout') || errorMsg.includes('ETIMEDOUT')) {
+    } else if (displayMessage.includes('timeout') || displayMessage.includes('ETIMEDOUT')) {
       errorCode = 'TIMEOUT';
-      retryable = true;
-    } else if (errorMsg.includes('network') || errorMsg.includes('fetch failed')) {
-      errorCode = 'NETWORK_ERROR';
       retryable = true;
     }
 
@@ -321,9 +524,9 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiGeneration
         success: false,
         error: {
           code: errorCode,
-          message: errorMsg,
-          retryable
-        }
+          message: displayMessage,
+          retryable,
+        },
       },
       { status: 500 }
     );

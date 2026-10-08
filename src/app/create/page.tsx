@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, Suspense, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   Sparkles,
@@ -9,6 +9,7 @@ import {
   Upload,
   Check,
   ChevronDown,
+  ChevronUp,
   RefreshCw,
   FolderPlus,
   Info,
@@ -24,7 +25,15 @@ import {
   ZoomIn,
   MessageSquare,
   PlusCircle,
-  Cpu
+  Cpu,
+  Copy,
+  ExternalLink,
+  FileDown,
+  ClipboardPaste,
+  ImageIcon,
+  ArrowRight,
+  Trash2,
+  ExternalLink as LinkIcon
 } from 'lucide-react';
 import {
   CampaignType,
@@ -38,7 +47,12 @@ import {
   GenerationState,
   GeneratedVariation,
   ProjectRecord,
-  ApiProviderStatus
+  ApiProviderStatus,
+  GenerationMode,
+  PollinationsModelItem,
+  PollinationsStatusResponse,
+  GenerationSlot,
+  SlotStatus
 } from '@/lib/types';
 import {
   getBrandConfig,
@@ -50,8 +64,18 @@ import {
   setImageProvider,
   GeminiImageProvider,
   DeterministicDemoProvider,
-  checkServerProviderStatus
+  PollinationsImageProvider,
+  checkServerProviderStatus,
+  fetchLivePollinationsModels,
+  checkPollinationsStatus
 } from '@/lib/imageProvider';
+import {
+  composeGenerationPrompt,
+  buildGeminiWebPrompt,
+  buildGeminiVariationPrompts,
+  buildGeminiRefinementPrompt,
+  getKnowledgeSourcesSummary
+} from '@/lib/promptComposer';
 import { saveProject } from '@/lib/projects';
 import { logActivity } from '@/lib/activity';
 import { AssetPickerModal } from '@/components/AssetPickerModal';
@@ -76,7 +100,7 @@ const platformOptions: PlatformType[] = [
   'Story',
 ];
 
-const creativeTypeOptions: CreativeType[] = [
+const creativeTypes: CreativeType[] = [
   'Poster',
   'Social Post',
   'Carousel Cover',
@@ -131,8 +155,8 @@ const visualStyles: { title: VisualStyleType; desc: string; previewBadge: string
 ];
 
 const examplePrompts = [
-  'Create a premium, credible healthcare education promotional poster. Use a refined clinical editorial style. Keep the composition sophisticated and human-designed. Make the course title highly readable, preserve the supplied GIMA identity, avoid generic AI-looking visuals, and use strong professional visual hierarchy.',
-  'Use a premium clinical look with Dr. Meschino on the right and course title on the left.',
+  'Create a premium, professional promotional poster for GIMA\'s Theories of Aging free course. Use a sophisticated clinical editorial aesthetic, strong visual hierarchy, professional healthcare imagery, accurate readable typography, and the supplied GIMA identity. Focus on the educational theme of healthy aging and cellular mechanisms using only the supplied GIMA information. Make it look like a professionally art-directed human marketing campaign, not a generic AI image.',
+  'Use a premium clinical editorial look with Dr. Meschino on the right and course title on the left.',
   'Make the headline dominant and keep the GIMA logo subtle and refined at top center.',
   'Emphasize evidence-based clinical studies on glutathione synthesis, not generic stock imagery.',
 ];
@@ -140,34 +164,39 @@ const examplePrompts = [
 function CreateCreativeContent() {
   const searchParams = useSearchParams();
   const brandConfig = useMemo(() => getBrandConfig(), []);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Provider configuration state
+  // Provider & Generation Mode State (Default is pollinations if configured, fallback to gemini-web-handoff)
+  const [generationMode, setGenerationMode] = useState<GenerationMode>('pollinations');
   const [providerStatus, setProviderStatus] = useState<ApiProviderStatus | null>(null);
-  const [useDemoMode, setUseDemoMode] = useState<boolean>(false);
+  const [pollinationsModels, setPollinationsModels] = useState<PollinationsModelItem[]>([]);
+  const [selectedPollinationsModel, setSelectedPollinationsModel] = useState<string>('openai/gpt-image-2');
+  const [pollinationsStatus, setPollinationsStatus] = useState<PollinationsStatusResponse | null>(null);
 
   // Form State
   const [campaignType, setCampaignType] = useState<CampaignType>(
-    (searchParams.get('campaignType') as CampaignType) || 'Course Promotion'
+    (searchParams.get('campaignType') as CampaignType) || 'Free Course Promotion'
   );
   const [course, setCourse] = useState<string>(
     searchParams.get('course') || 'Theories of Aging'
   );
-  const [topic, setTopic] = useState<string>('Mitochondria & Cellular Senescence');
+  const [topic, setTopic] = useState<string>('Cellular Senescence, Free Radicals & Glycation');
   const [selectedPlatforms, setSelectedPlatforms] = useState<PlatformType[]>([
     'Instagram',
-    'LinkedIn',
   ]);
   const [creativeType, setCreativeType] = useState<CreativeType>('Poster');
   const [aspectRatio, setAspectRatio] = useState<AspectRatioType>('4:5');
   const [style, setStyle] = useState<VisualStyleType>('Clinical Editorial');
   const [headline, setHeadline] = useState<string>(
-    'Master Orthomolecular Medicine & Theories of Aging'
+    'Theories of Aging: Cellular Mechanisms & Longevity Science'
   );
-  const [cta, setCta] = useState<string>('Enroll in Free Course');
+  const [cta, setCta] = useState<string>('Enroll Free Today');
   const [audience, setAudience] = useState<string>(
-    'Regulated Healthcare Professionals (Chiropractors, NDs, Nurses, MDs)'
+    'Integrative Practitioners, Nutritionists, Healthcare Students'
   );
-  const [extraPrompt, setExtraPrompt] = useState<string>('');
+  const [extraPrompt, setExtraPrompt] = useState<string>(
+    'Create a premium, professional promotional poster for GIMA\'s Theories of Aging free course. Use a sophisticated clinical editorial aesthetic, clear visual hierarchy, refined healthcare imagery, accurate readable typography, and the supplied GIMA identity. Focus on the educational theme of healthy aging and cellular mechanisms using only the supplied GIMA information. Make it look like a professionally art-directed human marketing campaign, not a generic AI image.'
+  );
   const [variationsCount, setVariationsCount] = useState<number>(1);
   const [selectedAssets, setSelectedAssets] = useState<AssetItem[]>([
     {
@@ -175,19 +204,19 @@ function CreateCreativeContent() {
       name: 'GIMA Official Logo',
       category: 'Logos',
       url: 'https://gim-academy.com/wp-content/uploads/2023/11/GLOBAL_IMA_LOGO_ALT_ALT-1-1600x362-1.png',
-      description: 'Primary GIMA logo',
+      description: 'Primary GIMA logo with gold emblem and deep navy typography.',
     },
     {
       id: 'asset-instructor-dr-meschino',
-      name: 'Dr. James Meschino (Lead Instructor)',
+      name: 'Dr. James Meschino (Lead Faculty)',
       category: 'Instructor imagery',
       url: 'https://gim-academy.com/wp-content/plugins/gima-course-details/assets/images/dr-meschino.png',
-      description: 'Dr. James Meschino, DC, MS, ROHP',
+      description: 'Dr. James Meschino, DC, MS, ROHP - Academic Director & Lead Faculty.',
     },
   ]);
   const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
 
-  // Generation Lifecycle State
+  // Generation & Handoff Lifecycle State
   const [generationState, setGenerationState] = useState<GenerationState>('idle');
   const [progressMsg, setProgressMsg] = useState<string>('');
   const [progressPercent, setProgressPercent] = useState<number>(0);
@@ -195,25 +224,118 @@ function CreateCreativeContent() {
   const [activeVariationIdx, setActiveVariationIdx] = useState<number>(0);
   const [savedProjectSuccess, setSavedProjectSuccess] = useState<boolean>(false);
   const [isLightboxOpen, setIsLightboxOpen] = useState<boolean>(false);
-  const [iterationPrompt, setIterationPrompt] = useState<string>('');
-  const [isIterating, setIsIterating] = useState<boolean>(false);
 
-  // Check server configuration on mount
+  // Progressive Slots & Performance Metrics (Phase 3.1)
+  const [slots, setSlots] = useState<GenerationSlot[]>([]);
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [timeToFirstImage, setTimeToFirstImage] = useState<number | null>(null);
+  const [totalGenerationTime, setTotalGenerationTime] = useState<number | null>(null);
+  const [selectedLightboxSlot, setSelectedLightboxSlot] = useState<GenerationSlot | null>(null);
+  const [isBriefExpanded, setIsBriefExpanded] = useState<boolean>(false);
+
+  // Gemini Handoff specifics
+  const [preparedWebPrompt, setPreparedWebPrompt] = useState<string>('');
+  const [preparedVariationPrompts, setPreparedVariationPrompts] = useState<{ variationNumber: number; title: string; styleDescription: string; prompt: string }[]>([]);
+  const [activeVariationPromptTab, setActiveVariationPromptTab] = useState<number>(0);
+  const [copiedPromptStatus, setCopiedPromptStatus] = useState<string | null>(null);
+  const [isDragOver, setIsDragOver] = useState<boolean>(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importSuccessMsg, setImportSuccessMsg] = useState<string | null>(null);
+
+  // Refinement drawer state
+  const [isRefining, setIsRefining] = useState<boolean>(false);
+  const [refinementInput, setRefinementInput] = useState<string>('');
+  const [copiedRefinementStatus, setCopiedRefinementStatus] = useState<boolean>(false);
+
+  // Check server configuration and load live Pollinations models on mount
   useEffect(() => {
     checkServerProviderStatus().then((status) => {
       setProviderStatus(status);
-      if (!status.configured) {
-        setUseDemoMode(true);
+      if (status.pollinationsConfigured) {
+        setGenerationMode('pollinations');
+      } else {
+        setGenerationMode('gemini-web-handoff');
+      }
+    });
+
+    checkPollinationsStatus().then((pollStatus) => {
+      setPollinationsStatus(pollStatus);
+    });
+
+    fetchLivePollinationsModels().then((models) => {
+      if (models && models.length > 0) {
+        setPollinationsModels(models);
+        const preferred = models.find((m) => m.id === 'openai/gpt-image-2') || models[0];
+        setSelectedPollinationsModel(preferred.id);
       }
     });
   }, []);
 
   // Synchronize dynamic retrieved knowledge whenever course changes
   const retrievedKnowledge = useMemo(() => {
+    if (course.toLowerCase().includes('theories') || campaignType === 'Free Course Promotion') {
+      return searchKnowledge(topic || '', { course: 'Theories of Aging' }).slice(0, 5);
+    }
     return getKnowledgeForCourse(course).slice(0, 5);
-  }, [course]);
+  }, [course, campaignType, topic]);
 
-  // Available courses list derived from authoritative brand configuration
+  // Derived list of source documents used
+  const knowledgeSourcesUsed = useMemo(() => {
+    return getKnowledgeSourcesSummary(retrievedKnowledge);
+  }, [retrievedKnowledge]);
+
+  // Global paste handler for Ctrl+V image import
+  useEffect(() => {
+    const handleGlobalPaste = (e: ClipboardEvent) => {
+      // Only handle paste if we are in handoff_ready, waiting_gemini, or success state
+      if (generationMode !== 'gemini-web-handoff') return;
+      if (generationState !== 'handoff_ready' && generationState !== 'waiting_gemini' && generationState !== 'success') {
+        return;
+      }
+
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      let foundImage = false;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith('image/')) {
+          const file = items[i].getAsFile();
+          if (file) {
+            foundImage = true;
+            processImportedImageFile(file);
+            break;
+          }
+        }
+      }
+
+      if (!foundImage && e.clipboardData?.getData('text')) {
+        // If user pasted text in an input/textarea, do not show error
+        const target = e.target as HTMLElement;
+        if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
+          return;
+        }
+        setImportError('Clipboard contains text, not an image. Please copy or download the generated image from Gemini.');
+        setTimeout(() => setImportError(null), 4000);
+      }
+    };
+
+    window.addEventListener('paste', handleGlobalPaste);
+    return () => window.removeEventListener('paste', handleGlobalPaste);
+  }, [generationMode, generationState, headline, course, extraPrompt, cta, aspectRatio, style, generatedVariations]);
+
+  // ESC key closes fullscreen lightbox modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedLightboxSlot(null);
+        setIsLightboxOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Available courses list
   const allCourses = useMemo(() => {
     const list: { label: string; code?: string; type: string }[] = [
       { label: 'Theories of Aging', code: 'FREE-TOA', type: 'Free Course (12 PDFs)' },
@@ -245,6 +367,30 @@ function CreateCreativeContent() {
     });
   };
 
+  // Helper to build a current request object
+  const buildCurrentRequest = (): GenerationRequest => ({
+    id: `req-${Date.now()}`,
+    title: headline || `${course} ${creativeType}`,
+    campaignType,
+    course,
+    topic,
+    platforms: selectedPlatforms,
+    creativeType,
+    aspectRatio,
+    style,
+    headline,
+    cta,
+    audience,
+    language: 'English',
+    brandEmphasis: 'Clinical Authority',
+    variationsCount,
+    referenceImages: selectedAssets,
+    extraPrompt,
+    retrievedKnowledge,
+    brandInstructions: brandConfig.complianceRules,
+    createdAt: new Date().toISOString(),
+  });
+
   // Download Generated Image
   const handleDownload = (dataUrl: string, varNum: number) => {
     const link = document.createElement('a');
@@ -262,89 +408,505 @@ function CreateCreativeContent() {
       name: `Generated: ${headline.slice(0, 25)}...`,
       category: 'Uploaded references',
       url: dataUrl,
-      description: `Iterated generation from ${course}`,
+      description: `Imported from Gemini Pro for ${course}`,
     };
     setSelectedAssets((prev) => [...prev, newAsset]);
     alert('Added generated composition to Reference Assets for further iteration!');
   };
 
-  // Execution handler
-  const handleGenerate = async (customInstruction?: string) => {
-    // Prevent double submission
-    if (generationState !== 'idle' && generationState !== 'success' && generationState !== 'error') {
+  // Download reference assets individually or as batch with clean names
+  const handleDownloadReference = (asset: AssetItem) => {
+    const filename = asset.name.toLowerCase().includes('logo')
+      ? 'GIMA-Logo.png'
+      : asset.name.toLowerCase().includes('meschino')
+      ? 'GIMA-Dr-James-Meschino.png'
+      : `${asset.name.replace(/[^a-zA-Z0-9]/g, '-')}.png`;
+
+    const downloadUrl = `/api/download-asset?url=${encodeURIComponent(asset.url)}&filename=${encodeURIComponent(filename)}`;
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const handleDownloadAllReferences = async () => {
+    for (let i = 0; i < selectedAssets.length; i++) {
+      handleDownloadReference(selectedAssets[i]);
+      await new Promise((r) => setTimeout(r, 400));
+    }
+    logActivity({
+      type: 'references_exported',
+      title: 'Reference Assets Exported',
+      description: `Exported ${selectedAssets.length} GIMA brand reference assets for Gemini input.`,
+    });
+  };
+
+  // Process imported image file (from drop, file picker, or paste)
+  const processImportedImageFile = (file: File) => {
+    setImportError(null);
+    const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      setImportError('Invalid file format. Please upload a PNG, JPG, or WEBP image.');
+      return;
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      setImportError('File exceeds 15MB limit. Please upload a smaller image.');
       return;
     }
 
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      if (dataUrl) {
+        const newVar: GeneratedVariation = {
+          id: `var-handoff-${Date.now()}`,
+          variationNumber: generatedVariations.length + 1,
+          previewImageUrl: dataUrl,
+          compositionHeadline: headline || `${course} Promotional Creative`,
+          compositionSubhead: extraPrompt
+            ? `${course} — "${extraPrompt.slice(0, 65)}..."`
+            : `Designed exclusively for Healthcare Professionals | ${course}`,
+          ctaText: cta || 'Enroll Free Today',
+          aspectRatio,
+          style,
+          isDeterministicDemo: false,
+          isRealGemini: true,
+          source: 'gemini-web-handoff',
+          isWebHandoff: true,
+          modelUsed: 'Google Gemini Pro (Web)',
+          notes: `Generated via Google Gemini Pro Web Handoff (${aspectRatio}) | Style: ${style}`,
+        };
+
+        setGeneratedVariations((prev) => [newVar, ...prev]);
+        setSlots((prev) => [
+          {
+            index: prev.length,
+            variationNumber: prev.length + 1,
+            status: 'ready',
+            variation: newVar,
+          },
+          ...prev,
+        ]);
+        setActiveVariationIdx(0);
+        setGenerationState('success');
+        setImportSuccessMsg('Gemini image imported successfully!');
+        setTimeout(() => setImportSuccessMsg(null), 4000);
+
+        logActivity({
+          type: 'gemini_result_imported',
+          title: 'Gemini Result Imported',
+          description: `Imported creative generated in Google Gemini Pro for ${course}.`,
+          metadata: { course, style, format: aspectRatio }
+        });
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Drag and drop handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      processImportedImageFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  // ========================================================
+  // PRIMARY ACTION: PREPARE IN GEMINI (Web Handoff Mode)
+  // ========================================================
+  const handlePrepareGeminiHandoff = async () => {
     setGenerationState('preparing');
-    setProgressMsg('Preparing creative generation engine...');
-    setProgressPercent(10);
+    setProgressMsg('Preparing GIMA creative brief...');
+    setProgressPercent(15);
     setSavedProjectSuccess(false);
 
-    const activePrompt = customInstruction
-      ? `${extraPrompt} ${customInstruction}`.trim()
-      : extraPrompt;
+    const req = buildCurrentRequest();
 
-    const request: GenerationRequest = {
-      id: `gen-${Date.now()}`,
-      title: headline || `${course} Promotional Creative`,
-      campaignType,
-      course,
-      topic,
-      platforms: selectedPlatforms,
-      creativeType,
-      aspectRatio,
-      style,
-      headline,
-      cta,
-      audience,
-      language: 'English',
-      brandEmphasis: 'Clinical Authority',
-      variationsCount,
-      referenceImages: selectedAssets,
-      extraPrompt: activePrompt,
-      retrievedKnowledge,
-      brandInstructions: brandConfig.complianceRules,
-      createdAt: new Date().toISOString(),
-    };
+    await new Promise((r) => setTimeout(r, 450));
+    setGenerationState('retrieving');
+    setProgressMsg(`Retrieving relevant GIMA knowledge (${retrievedKnowledge.length} sources)...`);
+    setProgressPercent(40);
+
+    await new Promise((r) => setTimeout(r, 550));
+    setGenerationState('building_brief');
+    setProgressMsg(`Building verified creative brief & GIMA brand rules (${style})...`);
+    setProgressPercent(65);
+
+    await new Promise((r) => setTimeout(r, 450));
+    setProgressMsg('Preparing structured Gemini Pro prompt...');
+    setProgressPercent(85);
+
+    const mainPrompt = buildGeminiWebPrompt(req, brandConfig, retrievedKnowledge);
+    const varPrompts = buildGeminiVariationPrompts(req, brandConfig, retrievedKnowledge);
+
+    setPreparedWebPrompt(mainPrompt);
+    setPreparedVariationPrompts(varPrompts);
+    setActiveVariationPromptTab(0);
+
+    await new Promise((r) => setTimeout(r, 350));
+    setProgressMsg('Preparing reference assets...');
+    setProgressPercent(100);
+
+    await new Promise((r) => setTimeout(r, 300));
+    setGenerationState('handoff_ready');
+
+    logActivity({
+      type: 'handoff_prepared',
+      title: `Gemini Handoff Prepared: ${req.title}`,
+      description: `Structured creative prompt built with ${retrievedKnowledge.length} knowledge sources and ${selectedAssets.length} references.`,
+      metadata: { course, style, format: aspectRatio }
+    });
+  };
+
+  // Copy Gemini Prompt Action
+  const handleCopyPrompt = async (promptText: string, label: string = 'Prompt copied') => {
+    try {
+      await navigator.clipboard.writeText(promptText);
+      setCopiedPromptStatus(label);
+      setTimeout(() => setCopiedPromptStatus(null), 3500);
+
+      logActivity({
+        type: 'prompt_copied',
+        title: 'Gemini Prompt Copied',
+        description: `Prompt copied to clipboard for ${course}.`,
+      });
+    } catch (err) {
+      console.error('Clipboard copy failed:', err);
+    }
+  };
+
+  // Copy All Variation Prompts
+  const handleCopyAllVariations = async () => {
+    const allText = preparedVariationPrompts
+      .map((v) => `=== VARIATION ${v.variationNumber}: ${v.title.toUpperCase()} ===\n${v.prompt}\n\n`)
+      .join('\n');
+    await handleCopyPrompt(allText, `All ${preparedVariationPrompts.length} variation prompts copied!`);
+  };
+
+  // Open Gemini Action
+  const handleOpenGemini = () => {
+    window.open('https://gemini.google.com/app', '_blank', 'noopener,noreferrer');
+    setGenerationState('waiting_gemini');
+    logActivity({
+      type: 'gemini_tab_opened',
+      title: 'Google Gemini Opened',
+      description: 'Navigated to gemini.google.com/app in new tab.',
+    });
+  };
+
+  // Refine in Gemini Action
+  const handleGenerateRefinementPrompt = () => {
+    if (!refinementInput.trim()) return;
+    const currentPrompt = preparedWebPrompt || buildGeminiWebPrompt(buildCurrentRequest(), brandConfig, retrievedKnowledge);
+    const refinedText = buildGeminiRefinementPrompt(currentPrompt, refinementInput, `Current Headline: ${headline}`);
+    navigator.clipboard.writeText(refinedText);
+    setCopiedRefinementStatus(true);
+    setTimeout(() => setCopiedRefinementStatus(false), 3500);
+  };
+
+  // Aspect ratio class helper for clean visual slots
+  const getAspectClass = (ratio: AspectRatioType) => {
+    switch (ratio) {
+      case '1:1':
+        return 'aspect-square';
+      case '4:5':
+        return 'aspect-[4/5]';
+      case '16:9':
+        return 'aspect-video';
+      case '9:16':
+        return 'aspect-[9/16]';
+      case 'A4':
+        return 'aspect-[1/1.414]';
+      default:
+        return 'aspect-[4/5]';
+    }
+  };
+
+  // Retry a single failed slot independently
+  const handleRetrySlot = async (slotIndex: number) => {
+    const slot = slots[slotIndex];
+    if (!slot || isGenerating) return;
+
+    const retryStart = Date.now();
+    setSlots((prev) =>
+      prev.map((s) =>
+        s.index === slotIndex
+          ? { ...s, status: 'generating', error: undefined, startTime: retryStart }
+          : s
+      )
+    );
 
     try {
-      // Choose provider: real Gemini if configured and not explicitly forcing demo, else demo
-      const provider = (providerStatus?.configured && !useDemoMode)
+      const provider = new PollinationsImageProvider(selectedPollinationsModel);
+      const req = buildCurrentRequest();
+      const resultVar = await provider.generateSingleVariation(req, slotIndex);
+
+      setSlots((prev) =>
+        prev.map((s) =>
+          s.index === slotIndex
+            ? {
+                ...s,
+                status: 'ready',
+                variation: resultVar,
+                durationMs: Date.now() - retryStart,
+              }
+            : s
+        )
+      );
+
+      setGeneratedVariations((prev) => {
+        const filtered = prev.filter((v) => v.id !== resultVar.id);
+        return [...filtered, resultVar].sort((a, b) => a.variationNumber - b.variationNumber);
+      });
+    } catch (err: any) {
+      setSlots((prev) =>
+        prev.map((s) =>
+          s.index === slotIndex
+            ? {
+                ...s,
+                status: 'error',
+                error: err.message || 'Retry failed',
+              }
+            : s
+        )
+      );
+    }
+  };
+
+  // Save single slot variation to projects
+  const handleSaveSlotToProjects = (slot: GenerationSlot) => {
+    if (!slot.variation) return;
+    const projectRecord: ProjectRecord = {
+      id: `proj-${Date.now()}-${slot.variationNumber}`,
+      name: `${headline || course} (Var ${slot.variationNumber})`,
+      course,
+      campaignType,
+      creativeType,
+      format: aspectRatio,
+      platforms: selectedPlatforms,
+      status: 'Draft',
+      lastEdited: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      thumbnail: slot.variation.previewImageUrl,
+      request: buildCurrentRequest(),
+      variations: [slot.variation],
+      provider: generationMode,
+      prompt: slot.variation.promptSummary || headline,
+      extraPrompt,
+      knowledgeSources: knowledgeSourcesUsed,
+      referenceAssets: selectedAssets.map((a) => a.name),
+      generatedAt: new Date().toISOString(),
+    };
+    saveProject(projectRecord);
+    setSavedProjectSuccess(true);
+    setTimeout(() => setSavedProjectSuccess(false), 3000);
+    logActivity({
+      type: 'project_saved',
+      title: `Saved Project: ${projectRecord.name}`,
+      description: `Saved Variation ${slot.variationNumber} (${generationMode}).`,
+    });
+  };
+
+  // ========================================================
+  // REAL GENERATION ACTION: PROGRESSIVE POLLINATIONS / DEMO
+  // ========================================================
+  const handleDirectGeneration = async (customInstruction?: string) => {
+    if (isGenerating) return;
+
+    const req = buildCurrentRequest();
+    if (customInstruction) {
+      req.extraPrompt = `${req.extraPrompt} ${customInstruction}`.trim();
+    }
+
+    setSavedProjectSuccess(false);
+
+    // ========================================================
+    // POLLINATIONS TRUE PROGRESSIVE GENERATION (PHASE 3.1)
+    // ========================================================
+    if (generationMode === 'pollinations') {
+      const targetCount = Math.max(1, Math.min(4, variationsCount));
+      const sessionStart = Date.now();
+      setTimeToFirstImage(null);
+      setTotalGenerationTime(null);
+      setIsGenerating(true);
+      setGenerationState('generating');
+      setProgressMsg(`Starting ${targetCount} visual variation${targetCount > 1 ? 's' : ''} in parallel...`);
+
+      // 1. Immediately create N skeletons!
+      const initialSlots: GenerationSlot[] = Array.from({ length: targetCount }, (_, i) => ({
+        index: i,
+        variationNumber: i + 1,
+        status: 'generating',
+        startTime: sessionStart,
+      }));
+      setSlots(initialSlots);
+
+      const provider = new PollinationsImageProvider(selectedPollinationsModel);
+      let firstCompleted = false;
+
+      // 2. Fire concurrent independent requests!
+      const promises = initialSlots.map(async (slot) => {
+        try {
+          const resultVar = await provider.generateSingleVariation(req, slot.index);
+          const finishedAt = Date.now();
+
+          // Time to First Image metric
+          if (!firstCompleted) {
+            firstCompleted = true;
+            setTimeToFirstImage(finishedAt - sessionStart);
+          }
+
+          // Replace ONLY this slot's skeleton immediately!
+          setSlots((prev) =>
+            prev.map((s) =>
+              s.index === slot.index
+                ? {
+                    ...s,
+                    status: 'ready',
+                    variation: resultVar,
+                    durationMs: finishedAt - slot.startTime!,
+                  }
+                : s
+            )
+          );
+
+          // Update generatedVariations preserving fixed order
+          setGeneratedVariations((prev) => {
+            const filtered = prev.filter((v) => v.id !== resultVar.id);
+            return [...filtered, resultVar].sort((a, b) => a.variationNumber - b.variationNumber);
+          });
+
+          return resultVar;
+        } catch (err: any) {
+          console.error(`[Slot ${slot.variationNumber} Error]:`, err);
+          let errMsg = err.message || 'Generation failed.';
+          if (errMsg.includes('401') || errMsg.includes('INVALID_API_KEY')) {
+            errMsg = 'API key rejected.';
+          } else if (errMsg.includes('402') || errMsg.includes('INSUFFICIENT_BALANCE')) {
+            errMsg = 'Insufficient Pollen balance.';
+          } else if (errMsg.includes('429') || errMsg.includes('RATE_LIMITED')) {
+            errMsg = 'Rate limit reached.';
+          } else if (errMsg.includes('404') || errMsg.includes('MODEL_NOT_FOUND')) {
+            errMsg = 'Model unavailable.';
+          }
+
+          setSlots((prev) =>
+            prev.map((s) =>
+              s.index === slot.index
+                ? {
+                    ...s,
+                    status: 'error',
+                    error: errMsg,
+                  }
+                : s
+            )
+          );
+          throw err;
+        }
+      });
+
+      const settled = await Promise.allSettled(promises);
+      const totalTime = Date.now() - sessionStart;
+      setTotalGenerationTime(totalTime);
+      setIsGenerating(false);
+
+      const successCount = settled.filter((s) => s.status === 'fulfilled').length;
+      if (successCount > 0) {
+        setGenerationState('success');
+        setProgressMsg(`${successCount} of ${targetCount} ready`);
+        logActivity({
+          type: 'creative_draft',
+          title: `Generated Creatives: ${req.title}`,
+          description: `Produced ${successCount} of ${targetCount} variations using Pollinations AI (${selectedPollinationsModel}) in ${(totalTime / 1000).toFixed(1)}s.`,
+          metadata: {
+            course,
+            style,
+            count: successCount,
+            model: selectedPollinationsModel,
+            provider: 'pollinations',
+          },
+        });
+      } else {
+        setGenerationState('error');
+        setProgressMsg('All variation requests failed. Check Settings to verify Pollen balance.');
+      }
+      return;
+    }
+
+    // ========================================================
+    // GEMINI API OR DEMO PREVIEW (Legacy fallback)
+    // ========================================================
+    setIsGenerating(true);
+    setGenerationState('preparing');
+    setProgressMsg('Preparing generation engine...');
+    setProgressPercent(15);
+
+    const targetCount = Math.max(1, Math.min(4, variationsCount));
+    const initialSlots: GenerationSlot[] = Array.from({ length: targetCount }, (_, i) => ({
+      index: i,
+      variationNumber: i + 1,
+      status: 'generating',
+      startTime: Date.now(),
+    }));
+    setSlots(initialSlots);
+
+    try {
+      const provider = generationMode === 'gemini-api'
         ? new GeminiImageProvider()
         : new DeterministicDemoProvider();
 
       setImageProvider(provider);
 
-      const results = await provider.generate(request, (step, message, pct) => {
+      const results = await provider.generate(req, (step: any, message: string, pct: number) => {
         setGenerationState(step as GenerationState);
         setProgressMsg(message);
         setProgressPercent(pct);
       });
 
+      const newSlots: GenerationSlot[] = results.map((v, idx) => ({
+        index: idx,
+        variationNumber: idx + 1,
+        status: 'ready',
+        variation: v,
+        durationMs: v.generationTimeMs,
+      }));
+
+      setSlots(newSlots);
       setGeneratedVariations(results);
       setActiveVariationIdx(0);
       setGenerationState('success');
-      setIsIterating(false);
-
-      logActivity({
-        type: 'creative_draft',
-        title: `Generated Creative: ${request.title}`,
-        description: `Produced ${results.length} variation(s) for ${course} using ${provider.name}`,
-        metadata: {
-          course,
-          style,
-          count: results.length,
-          model: results[0]?.modelUsed || 'default',
-          timeMs: results[0]?.generationTimeMs
-        },
-      });
+      setIsGenerating(false);
     } catch (err: any) {
       console.error(err);
       setGenerationState('error');
-      setProgressMsg(err.message || 'Error occurred during creative generation.');
+      setIsGenerating(false);
+      setProgressMsg(err.message || 'Generation failed.');
     }
   };
 
+  // Primary Button Trigger
+  const handlePrimaryAction = () => {
+    if (generationMode === 'gemini-web-handoff') {
+      handlePrepareGeminiHandoff();
+    } else {
+      handleDirectGeneration();
+    }
+  };
+
+  // Save to Projects
   const handleSaveToProjects = () => {
     if (!generatedVariations.length) return;
 
@@ -361,37 +923,22 @@ function CreateCreativeContent() {
       lastEdited: new Date().toISOString(),
       createdAt: new Date().toISOString(),
       thumbnail: currentVar.previewImageUrl,
-      request: {
-        id: `req-${Date.now()}`,
-        title: headline,
-        campaignType,
-        course,
-        topic,
-        platforms: selectedPlatforms,
-        creativeType,
-        aspectRatio,
-        style,
-        headline,
-        cta,
-        audience,
-        language: 'English',
-        brandEmphasis: 'Clinical Authority',
-        variationsCount,
-        referenceImages: selectedAssets,
-        extraPrompt,
-        retrievedKnowledge,
-        brandInstructions: brandConfig.complianceRules,
-        createdAt: new Date().toISOString(),
-      },
+      request: buildCurrentRequest(),
       variations: generatedVariations,
+      provider: generationMode,
+      prompt: preparedWebPrompt,
+      extraPrompt,
+      knowledgeSources: knowledgeSourcesUsed,
+      referenceAssets: selectedAssets.map((a) => a.name),
+      generatedAt: new Date().toISOString(),
     };
 
     saveProject(projectRecord);
     setSavedProjectSuccess(true);
     logActivity({
-      type: 'project_created',
+      type: 'project_saved',
       title: `Saved Project: ${projectRecord.name}`,
-      description: `Project archived with ${generatedVariations.length} variation(s).`,
+      description: `Project archived with ${generatedVariations.length} variation(s) (${generationMode}).`,
     });
   };
 
@@ -405,14 +952,25 @@ function CreateCreativeContent() {
               Studio Workspace
             </span>
             <span className="text-xs text-slate-400">•</span>
-            {providerStatus?.configured && !useDemoMode ? (
-              <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-pulse" />
-                Google Gemini Active ({providerStatus.model})
+            {generationMode === 'pollinations' ? (
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                <span className="h-2 w-2 rounded-full bg-emerald-600 animate-pulse" />
+                Pollinations AI ({selectedPollinationsModel.split('/')[1] || selectedPollinationsModel}) — Ready
+                {pollinationsStatus?.balanceText ? ` • ${pollinationsStatus.balanceText}` : ''}
+              </span>
+            ) : generationMode === 'gemini-web-handoff' ? (
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-800 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
+                <span className="h-2 w-2 rounded-full bg-blue-600 animate-pulse" />
+                Gemini Pro Web Handoff (Ready)
+              </span>
+            ) : generationMode === 'gemini-api' ? (
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                <span className="h-2 w-2 rounded-full bg-amber-500" />
+                Gemini API — Quota Limit: 0 (Free Tier)
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
-                <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
+                <span className="h-2 w-2 rounded-full bg-slate-400" />
                 Deterministic Demo Mode
               </span>
             )}
@@ -421,63 +979,58 @@ function CreateCreativeContent() {
             Creative Generation Studio
           </h2>
           <p className="text-xs sm:text-sm text-slate-500">
-            Generate promotional campaigns powered by Google Gemini and authoritative GIMA clinical sources.
+            {generationMode === 'pollinations'
+              ? 'Real AI image generation powered by Pollinations multi-model developer catalog and authoritative GIMA clinical sources.'
+              : generationMode === 'gemini-web-handoff'
+              ? 'GIMA AI Studio prepares verified clinical briefs; your signed-in Gemini Pro subscription generates the real creative.'
+              : 'Generate promotional campaigns powered by Google Gemini and authoritative GIMA clinical sources.'}
           </p>
         </div>
 
+        {/* Header Preset & Quick Controls */}
         <div className="flex items-center gap-2">
-          {providerStatus?.configured && (
-            <button
-              onClick={() => setUseDemoMode(!useDemoMode)}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-            >
-              Mode: {useDemoMode ? 'Demo Fallback' : 'Real Gemini'}
-            </button>
-          )}
-
           <button
             onClick={() => {
               setCourse('Theories of Aging');
-              setHeadline('Master Orthomolecular Medicine & Theories of Aging');
-              setCta('Enroll in Free Course');
+              setCampaignType('Free Course Promotion');
+              setCreativeType('Poster');
+              setAspectRatio('4:5');
+              setStyle('Clinical Editorial');
+              setHeadline('Theories of Aging: Cellular Mechanisms & Longevity Science');
+              setCta('Enroll Free Today');
+              setAudience('Integrative Practitioners, Nutritionists, Healthcare Students');
               setExtraPrompt(
-                'Create a premium, credible healthcare education promotional poster. Use a refined clinical editorial style. Keep the composition sophisticated and human-designed. Make the course title highly readable, preserve the supplied GIMA identity, avoid generic AI-looking visuals, and use strong professional visual hierarchy.'
+                'Create a premium, professional promotional poster for GIMA\'s Theories of Aging free course. Use a sophisticated clinical editorial aesthetic, clear visual hierarchy, refined healthcare imagery, accurate readable typography, and the supplied GIMA identity. Focus on the educational theme of healthy aging and cellular mechanisms using only the supplied GIMA information. Make it look like a professionally art-directed human marketing campaign, not a generic AI image.'
               );
             }}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-subtle"
           >
             Load Verified Preset
           </button>
         </div>
       </div>
 
-      {/* Two-Column Desktop Studio Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      {/* Main Studio Grid: Left Configuration (7 Cols) & Right Preview/Handoff (5 Cols) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* ======================================================== */}
-        {/* LEFT COLUMN: CREATION FORM (7 COLS ON DESKTOP)          */}
+        {/* LEFT COLUMN: CREATIVE SPECIFICATIONS (7 COLS)            */}
         {/* ======================================================== */}
         <div className="lg:col-span-7 space-y-6">
-          {/* Card: Primary Parameters */}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-subtle space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gima-navy text-[11px] text-white font-semibold">
-                  1
-                </span>
-                Campaign & Educational Focus
-              </h3>
-              <span className="text-[11px] text-slate-400 font-medium">Step 1 of 3</span>
+              <h3 className="text-sm font-bold text-slate-900">Creative Specifications</h3>
+              <span className="text-xs text-slate-500">GIMA Clinical Campaign Brief</span>
             </div>
 
             {/* A. Campaign Type */}
             <div>
-              <label className="block text-xs font-bold text-slate-800 mb-1.5">
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                 A. Campaign Type
               </label>
               <select
                 value={campaignType}
                 onChange={(e) => setCampaignType(e.target.value as CampaignType)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-xs text-slate-900 font-medium focus:border-gima-navy focus:bg-white focus:outline-none transition-colors"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-900 focus:border-gima-navy focus:outline-none"
               >
                 {campaignOptions.map((opt) => (
                   <option key={opt} value={opt}>
@@ -487,54 +1040,43 @@ function CreateCreativeContent() {
               </select>
             </div>
 
-            {/* B. Course / Topic */}
+            {/* B. Course Selection */}
             <div>
-              <label className="block text-xs font-bold text-slate-800 mb-1.5">
-                B. Target Course / Program
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                B. GIMA Target Curriculum Course
               </label>
               <select
                 value={course}
                 onChange={(e) => setCourse(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-xs text-slate-900 font-medium focus:border-gima-navy focus:bg-white focus:outline-none transition-colors"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-900 focus:border-gima-navy focus:outline-none"
               >
                 {allCourses.map((c) => (
                   <option key={c.label} value={c.label}>
-                    {c.label} ({c.type})
+                    {c.label} {c.code ? `(${c.code})` : ''} — {c.type}
                   </option>
                 ))}
               </select>
-
-              {/* Course Context Pill */}
-              {course.includes('Theories of Aging') && (
-                <div className="mt-2 flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-200/80 px-3 py-2 text-xs text-amber-900">
-                  <BookOpen className="h-4 w-4 shrink-0 text-amber-700" />
-                  <span>
-                    Linked to <strong>12 Free Course PDFs</strong>. High-priority clinical retrieval active.
-                  </span>
-                </div>
-              )}
             </div>
 
-            {/* C. Platform (Multi-select) */}
+            {/* C. Target Platform */}
             <div>
-              <label className="block text-xs font-bold text-slate-800 mb-1.5">
-                C. Distribution Platforms
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                C. Deployment Platform(s)
               </label>
               <div className="flex flex-wrap gap-2">
                 {platformOptions.map((p) => {
-                  const isChecked = selectedPlatforms.includes(p);
+                  const active = selectedPlatforms.includes(p);
                   return (
                     <button
                       type="button"
                       key={p}
                       onClick={() => togglePlatform(p)}
-                      className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
-                        isChecked
-                          ? 'bg-gima-navy text-white shadow-subtle ring-1 ring-gima-navy'
+                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                        active
+                          ? 'bg-gima-navy text-white shadow-subtle'
                           : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                       }`}
                     >
-                      {isChecked && <Check className="inline h-3 w-3 mr-1 stroke-[3]" />}
                       {p}
                     </button>
                   );
@@ -542,18 +1084,18 @@ function CreateCreativeContent() {
               </div>
             </div>
 
-            {/* D. Creative Type & E. Aspect Ratio */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+            {/* D. Creative Type & Aspect Ratio */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   D. Creative Format
                 </label>
                 <select
                   value={creativeType}
                   onChange={(e) => setCreativeType(e.target.value as CreativeType)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-xs text-slate-900 font-medium focus:border-gima-navy focus:bg-white focus:outline-none transition-colors"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-gima-navy focus:outline-none"
                 >
-                  {creativeTypeOptions.map((t) => (
+                  {creativeTypes.map((t) => (
                     <option key={t} value={t}>
                       {t}
                     </option>
@@ -562,161 +1104,97 @@ function CreateCreativeContent() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1.5">
-                  E. Aspect Ratio
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  E. Target Aspect Ratio
                 </label>
                 <select
                   value={aspectRatio}
                   onChange={(e) => setAspectRatio(e.target.value as AspectRatioType)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-xs text-slate-900 font-medium focus:border-gima-navy focus:bg-white focus:outline-none transition-colors"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-gima-navy focus:outline-none"
                 >
                   {aspectRatioOptions.map((opt) => (
                     <option key={opt.value} value={opt.value}>
-                      {opt.label} — {opt.desc}
+                      {opt.label} ({opt.desc})
                     </option>
                   ))}
                 </select>
               </div>
             </div>
-          </div>
 
-          {/* Card: Visual Style Selection */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-subtle space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gima-navy text-[11px] text-white font-semibold">
-                  2
-                </span>
-                F. Visual Style Direction
-              </h3>
-              <span className="text-[11px] text-slate-400 font-medium">Selectable Style Tokens</span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {visualStyles.map((vs) => {
-                const isSelected = style === vs.title;
-                return (
-                  <div
-                    key={vs.title}
-                    onClick={() => setStyle(vs.title)}
-                    className={`cursor-pointer rounded-xl border p-3.5 transition-all ${
-                      isSelected
-                        ? 'border-gima-navy bg-slate-50/80 ring-2 ring-gima-navy/20 shadow-subtle'
-                        : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/40'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-900">{vs.title}</span>
-                      <span className="rounded bg-slate-200/80 px-1.5 py-0.5 text-[9px] font-semibold text-slate-700">
-                        {vs.previewBadge}
-                      </span>
+            {/* F. Visual Style Direction */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                F. Visual Style Directives
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {visualStyles.map((vs) => {
+                  const active = style === vs.title;
+                  return (
+                    <div
+                      key={vs.title}
+                      onClick={() => setStyle(vs.title)}
+                      className={`cursor-pointer rounded-xl border p-3 transition-all ${
+                        active
+                          ? 'border-gima-navy bg-blue-50/40 ring-1 ring-gima-navy'
+                          : 'border-slate-200 bg-white hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-bold text-slate-900">{vs.title}</span>
+                        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-600">
+                          {vs.previewBadge}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 leading-relaxed">{vs.desc}</p>
                     </div>
-                    <p className="mt-1 text-[11px] text-slate-500 leading-relaxed">
-                      {vs.desc}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Card: Reference Assets & Custom Prompt */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-subtle space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gima-navy text-[11px] text-white font-semibold">
-                  3
-                </span>
-                G & H. Reference Assets & Direction
-              </h3>
-              <span className="text-[11px] text-slate-400 font-medium">Creative Controls</span>
+                  );
+                })}
+              </div>
             </div>
 
             {/* G. Reference Assets */}
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-bold text-slate-800">
-                  G. Reference Assets ({selectedAssets.length} Selected)
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-slate-700">
+                  G. GIMA Reference Assets ({selectedAssets.length} active)
                 </label>
                 <button
                   type="button"
                   onClick={() => setIsAssetModalOpen(true)}
-                  className="rounded-lg bg-gima-navy/10 px-2.5 py-1 text-xs font-semibold text-gima-navy hover:bg-gima-navy/20 transition-colors"
+                  className="text-xs font-bold text-gima-navy hover:text-gima-navy-light"
                 >
-                  + Use GIMA source assets
+                  Manage Assets +
                 </button>
               </div>
 
-              {/* Selected Assets Preview Row */}
-              <div className="flex flex-wrap gap-2.5 rounded-xl border border-slate-200 bg-slate-50/50 p-3">
+              <div className="flex flex-wrap gap-2">
                 {selectedAssets.map((asset) => (
                   <div
                     key={asset.id}
-                    className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white p-1.5 shadow-sm pr-3"
+                    className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-700"
                   >
                     <img
                       src={asset.url}
                       alt={asset.name}
-                      className="h-8 w-8 rounded object-cover border border-slate-100"
+                      className="h-6 w-6 rounded object-cover border border-slate-200"
                     />
-                    <div className="max-w-[140px] truncate">
-                      <p className="text-[11px] font-semibold text-slate-800 truncate">
-                        {asset.name}
-                      </p>
-                      <p className="text-[9px] text-slate-400 truncate">{asset.category}</p>
-                    </div>
+                    <span className="font-medium truncate max-w-[140px]">{asset.name}</span>
                     <button
                       type="button"
                       onClick={() => handleToggleAsset(asset)}
-                      className="text-slate-400 hover:text-red-500 text-xs ml-1"
+                      className="text-slate-400 hover:text-red-500"
                     >
-                      &times;
+                      <X className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* H. EXTRA REFERENCE PROMPT (High Importance) */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-bold text-slate-800">
-                  H. EXTRA REFERENCE PROMPT
-                </label>
-                <span className="text-[10px] text-amber-800 font-semibold bg-amber-50 px-2 py-0.5 rounded">
-                  Director Prompt
-                </span>
-              </div>
-              <textarea
-                rows={3}
-                value={extraPrompt}
-                onChange={(e) => setExtraPrompt(e.target.value)}
-                placeholder="Tell GIMA AI exactly how you want the creative to look..."
-                className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-gima-navy focus:bg-white focus:outline-none transition-colors"
-              />
-              <p className="mt-1 text-[11px] text-slate-500">
-                Optional — add your creative direction, composition, mood, or specific visual requirements.
-              </p>
-
-              {/* Clickable prompt helpers */}
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {examplePrompts.map((p, idx) => (
-                  <button
-                    type="button"
-                    key={idx}
-                    onClick={() => setExtraPrompt(p)}
-                    className="rounded bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-colors text-left"
-                  >
-                    &ldquo;{p.slice(0, 45)}...&rdquo;
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* I. Structured Controls */}
-            <div className="space-y-3 pt-2 border-t border-slate-100">
-              <span className="block text-xs font-bold text-slate-800">
-                I. Creative Requirements & Copy
+            {/* H. Copy Requirements */}
+            <div className="space-y-3 pt-1">
+              <span className="text-xs font-semibold text-slate-700 block">
+                H. Mandatory Copy & Messaging
               </span>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -757,6 +1235,35 @@ function CreateCreativeContent() {
                 />
               </div>
 
+              {/* Extra Prompt Guidance */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-700">
+                    Custom Creative Direction (Admin Prompt)
+                  </label>
+                  <span className="text-[10px] text-slate-400">Incorporated into Gemini prompt</span>
+                </div>
+                <textarea
+                  rows={3}
+                  value={extraPrompt}
+                  onChange={(e) => setExtraPrompt(e.target.value)}
+                  placeholder="Specify composition accents, lighting, background medical textures, or focal layout..."
+                  className="w-full rounded-lg border border-slate-200 p-2.5 text-xs text-slate-900 focus:border-gima-navy focus:outline-none"
+                />
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {examplePrompts.map((p, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setExtraPrompt(p)}
+                      className="text-[10px] text-slate-500 hover:text-gima-navy bg-slate-100 px-2 py-0.5 rounded-full hover:bg-slate-200 transition-colors truncate max-w-[220px]"
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* J. Variations count */}
               <div className="flex items-center justify-between pt-2">
                 <span className="text-xs font-semibold text-slate-700">
@@ -781,21 +1288,165 @@ function CreateCreativeContent() {
               </div>
             </div>
 
-            {/* K. Generate Creative Button with Lock/Cooldown */}
-            <div className="pt-4 border-t border-slate-100">
+            {/* Mode Selector & Primary Trigger Action */}
+            <div className="pt-4 border-t border-slate-100 space-y-3">
+              {/* Generation Mode Selector */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3 space-y-2.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Sliders className="h-3.5 w-3.5 text-gima-navy" />
+                    Generation Workflow Mode
+                  </span>
+                  <div className="grid grid-cols-2 sm:flex sm:items-center gap-1 bg-white border border-slate-200 p-0.5 rounded-lg text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => setGenerationMode('pollinations')}
+                      className={`px-2.5 py-1 rounded font-semibold transition-all ${
+                        generationMode === 'pollinations'
+                          ? 'bg-gima-navy text-white shadow-subtle'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Pollinations AI
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setGenerationMode('gemini-web-handoff')}
+                      className={`px-2 py-1 rounded font-semibold transition-all ${
+                        generationMode === 'gemini-web-handoff'
+                          ? 'bg-gima-navy text-white shadow-subtle'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Gemini Handoff
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setGenerationMode('gemini-api')}
+                      className={`px-2 py-1 rounded font-semibold transition-all ${
+                        generationMode === 'gemini-api'
+                          ? 'bg-gima-navy text-white shadow-subtle'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Gemini API
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setGenerationMode('demo-preview')}
+                      className={`px-2 py-1 rounded font-semibold transition-all ${
+                        generationMode === 'demo-preview'
+                          ? 'bg-gima-navy text-white shadow-subtle'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Demo Preview
+                    </button>
+                  </div>
+                </div>
+
+                {/* Pollinations Model Selection Card */}
+                {generationMode === 'pollinations' && (
+                  <div className="rounded-lg border border-emerald-200 bg-white p-3 space-y-2 animate-fade-in">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-bold text-slate-800 flex items-center gap-1.5">
+                        <Cpu className="h-3 w-3 text-emerald-700" />
+                        Active Pollinations Model
+                      </label>
+                      <div className="flex items-center gap-1.5">
+                        {pollinationsStatus?.balanceText && (
+                          <span className="text-[10px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                            {pollinationsStatus.balanceText}
+                          </span>
+                        )}
+                        <span className="text-[10px] text-slate-500 font-medium">
+                          {pollinationsModels.length > 0 ? `${pollinationsModels.length} models live` : 'Catalog ready'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <select
+                      value={selectedPollinationsModel}
+                      onChange={(e) => setSelectedPollinationsModel(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50/70 px-2.5 py-1.5 text-xs text-slate-800 font-medium focus:border-gima-navy focus:outline-none"
+                    >
+                      {pollinationsModels.length > 0 ? (
+                        pollinationsModels.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.name || m.id} ({m.publisher}) {m.supportsReferenceImages ? '— [Supports Image Input]' : ''}
+                          </option>
+                        ))
+                      ) : (
+                        <>
+                          <option value="openai/gpt-image-2">GPT Image 2 (OpenAI) — Multimodal</option>
+                          <option value="tongyi-mai/z-image-turbo">Z-Image Turbo (Alibaba) — Ultra Fast</option>
+                          <option value="microsoft/mai-image-2.6-flash">MAI Image 2.6 Flash (Microsoft)</option>
+                          <option value="black-forest-labs/flux.1-schnell">FLUX.1 Schnell (Black Forest Labs)</option>
+                        </>
+                      )}
+                    </select>
+
+                    <div className="flex items-center justify-between text-[10px] text-slate-500 pt-0.5">
+                      <span>
+                        {pollinationsModels.find((m) => m.id === selectedPollinationsModel)?.supportsReferenceImages
+                          ? '✓ Model supports image conditioning with selected GIMA assets.'
+                          : 'Model uses text-to-image synthesis grounded in GIMA knowledge.'}
+                      </span>
+                      <span className="text-emerald-700 font-semibold">Real AI Generation</span>
+                    </div>
+                  </div>
+                )}
+
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  {generationMode === 'pollinations' && (
+                    <>
+                      <strong className="text-slate-700">Phase 3 Primary Provider:</strong> Real AI image generation using the authenticated Pollinations API catalog. Directly creates clinical campaign visuals grounded in GIMA knowledge.
+                    </>
+                  )}
+                  {generationMode === 'gemini-web-handoff' && (
+                    <>
+                      <strong className="text-slate-700">₹0 Pro Alternative:</strong> Uses your logged-in Gemini Pro experience. GIMA AI Studio prepares the verified brief and returns the generated asset to the studio.
+                    </>
+                  )}
+                  {generationMode === 'gemini-api' && (
+                    <>
+                      Calls Google Gemini API directly. <span className="text-amber-700 font-semibold">Note: Google Free Tier projects have image quota limit: 0.</span>
+                    </>
+                  )}
+                  {generationMode === 'demo-preview' && (
+                    <>
+                      Generates local deterministic previews with official GIMA branding and curriculum typography. Not AI-generated.
+                    </>
+                  )}
+                </p>
+              </div>
+
+              {/* Main Action Button */}
               <button
                 type="button"
-                onClick={() => handleGenerate()}
-                disabled={generationState === 'preparing' || generationState === 'retrieving' || generationState === 'building_brief' || generationState === 'generating' || generationState === 'review'}
+                onClick={handlePrimaryAction}
+                disabled={
+                  generationState === 'preparing' ||
+                  generationState === 'retrieving' ||
+                  generationState === 'building_brief' ||
+                  generationState === 'generating' ||
+                  generationState === 'review'
+                }
                 className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-gima-navy to-gima-navy-dark px-6 py-3.5 text-sm font-bold text-white shadow-elevated hover:from-gima-navy-light hover:to-gima-navy transition-all active:scale-[0.99] disabled:opacity-50"
               >
                 <Sparkles className="h-4 w-4 text-gima-gold-light" />
                 <span>
-                  {generationState === 'generating'
-                    ? 'Generating with Gemini...'
-                    : generationState === 'retrieving'
-                    ? 'Retrieving Knowledge...'
-                    : `Generate Creative (${variationsCount} Variation${variationsCount > 1 ? 's' : ''})`}
+                  {generationMode === 'pollinations'
+                    ? generationState === 'preparing' || generationState === 'retrieving' || generationState === 'building_brief' || generationState === 'generating'
+                      ? 'Generating with Pollinations AI...'
+                      : `GENERATE CREATIVE (${selectedPollinationsModel.split('/')[1] || selectedPollinationsModel} • ${variationsCount} Var)`
+                    : generationMode === 'gemini-web-handoff'
+                    ? generationState === 'preparing' || generationState === 'retrieving' || generationState === 'building_brief'
+                      ? 'Preparing Creative Brief...'
+                      : `PREPARE IN GEMINI (${variationsCount} Variation${variationsCount > 1 ? 's' : ''})`
+                    : generationMode === 'gemini-api'
+                    ? 'Generate with Gemini API'
+                    : 'Generate Demo Preview'}
                 </span>
               </button>
             </div>
@@ -803,369 +1454,525 @@ function CreateCreativeContent() {
         </div>
 
         {/* ======================================================== */}
-        {/* RIGHT COLUMN: LIVE BRIEF & GENERATION PREVIEW (5 COLS)   */}
         {/* ======================================================== */}
-        <div className="lg:col-span-5 space-y-6">
-          {/* Dynamic Creative Brief Summary (Updates Live!) */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-subtle space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-gima-navy" />
-                <h3 className="text-sm font-bold text-slate-900">Live Creative Brief</h3>
+        {/* RIGHT COLUMN: CREATIVE STUDIO RESULTS & HANDOFF (5 COLS)  */}
+        {/* ======================================================== */}
+        <div className="lg:col-span-5 space-y-5">
+          {/* 1. COMPACT COLLAPSIBLE BRIEF & CLINICAL SOURCES (Visual Dominance) */}
+          <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-subtle transition-all">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs truncate max-w-[68%]">
+                <FileText className="h-4 w-4 text-gima-navy shrink-0" />
+                <span className="font-bold text-slate-800 truncate">{course}</span>
+                <span className="text-slate-300">•</span>
+                <span className="text-slate-500 text-[11px] truncate">{style} ({aspectRatio})</span>
               </div>
-              <span className="rounded bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
-                Live Sync
-              </span>
+              <button
+                type="button"
+                onClick={() => setIsBriefExpanded(!isBriefExpanded)}
+                className="flex items-center gap-1.5 text-[11px] font-semibold text-gima-navy hover:text-gima-navy-light bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg transition-colors"
+              >
+                <span>{isBriefExpanded ? 'Hide Brief' : `Brief & Sources (${retrievedKnowledge.length})`}</span>
+                {isBriefExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              </button>
             </div>
 
-            <div className="space-y-2.5 text-xs">
-              <div className="flex justify-between py-1 border-b border-slate-50">
-                <span className="text-slate-400 font-medium">Campaign:</span>
-                <span className="font-semibold text-slate-800">{campaignType}</span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-slate-50">
-                <span className="text-slate-400 font-medium">Target Course:</span>
-                <span className="font-semibold text-slate-800 text-right max-w-[200px] truncate">{course}</span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-slate-50">
-                <span className="text-slate-400 font-medium">Platforms:</span>
-                <span className="font-semibold text-slate-800">{selectedPlatforms.join(', ')}</span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-slate-50">
-                <span className="text-slate-400 font-medium">Format:</span>
-                <span className="font-semibold text-slate-800">{creativeType} ({aspectRatio})</span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-slate-50">
-                <span className="text-slate-400 font-medium">Visual Style:</span>
-                <span className="font-semibold text-slate-800">{style}</span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-slate-50">
-                <span className="text-slate-400 font-medium">Audience:</span>
-                <span className="font-semibold text-slate-800 text-right max-w-[180px] truncate">{audience}</span>
-              </div>
-              {extraPrompt && (
-                <div className="pt-1 text-slate-600 bg-amber-50/50 p-2 rounded-lg border border-amber-200/50 text-[11px]">
-                  <span className="font-bold text-amber-900 block mb-0.5">Custom Direction:</span>
-                  &ldquo;{extraPrompt}&rdquo;
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Retrieved GIMA Knowledge Snippets */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-subtle space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-              <div className="flex items-center gap-2">
-                <BookOpen className="h-4 w-4 text-gima-gold-dark" />
-                <h4 className="text-xs font-bold text-slate-900">
-                  Retrieved GIMA Clinical Knowledge ({retrievedKnowledge.length})
-                </h4>
-              </div>
-              <span className="text-[10px] text-slate-400">Authoritative</span>
-            </div>
-
-            <div className="space-y-2">
-              {retrievedKnowledge.length > 0 ? (
-                retrievedKnowledge.map((item) => (
-                  <div
-                    key={item.id}
-                    className="rounded-lg border border-slate-100 bg-slate-50/50 p-2.5 text-xs hover:border-slate-200 transition-colors"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-900 truncate max-w-[180px]">
-                        {item.sourceTitle}
-                      </span>
-                      <span className="rounded bg-white border border-slate-200 px-1.5 py-0.2 text-[9px] font-semibold text-slate-600">
-                        {item.sourceType.toUpperCase()}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-[11px] text-slate-500 line-clamp-2 leading-relaxed">
-                      {item.summary}
-                    </p>
-                    {item.topics && item.topics.length > 0 && (
-                      <div className="mt-1.5 flex flex-wrap gap-1">
-                        {item.topics.slice(0, 3).map((t) => (
-                          <span
-                            key={t}
-                            className="rounded bg-blue-50 px-1.5 py-0.5 text-[9px] font-medium text-blue-700"
-                          >
-                            {t}
-                          </span>
-                        ))}
-                      </div>
-                    )}
+            {/* Expandable Brief & Sources Panel */}
+            {isBriefExpanded && (
+              <div className="mt-3 pt-3 border-t border-slate-100 space-y-3 text-xs animate-fade-in">
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div>
+                    <span className="text-slate-400 block font-medium">Campaign:</span>
+                    <span className="font-semibold text-slate-800">{campaignType}</span>
                   </div>
-                ))
-              ) : (
-                <p className="text-xs text-slate-400 italic">No specific documents matched course query.</p>
-              )}
-            </div>
+                  <div>
+                    <span className="text-slate-400 block font-medium">Format:</span>
+                    <span className="font-semibold text-slate-800">{creativeType} ({aspectRatio})</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block font-medium">Platforms:</span>
+                    <span className="font-semibold text-slate-800">{selectedPlatforms.join(', ')}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block font-medium">Target Audience:</span>
+                    <span className="font-semibold text-slate-800 truncate block">{audience}</span>
+                  </div>
+                </div>
+
+                {extraPrompt && (
+                  <div className="rounded-lg bg-amber-50/60 border border-amber-200/50 p-2 text-[11px] text-slate-700">
+                    <span className="font-bold text-amber-900 block mb-0.5">Admin Direction:</span>
+                    &ldquo;{extraPrompt}&rdquo;
+                  </div>
+                )}
+
+                {/* Retrieved GIMA Sources */}
+                <div className="pt-2 border-t border-slate-100">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                      <BookOpen className="h-3 w-3 text-gima-gold-dark" />
+                      Retrieved Clinical Sources ({retrievedKnowledge.length}):
+                    </span>
+                    <span className="text-[10px] text-slate-400">12 Free-Course PDFs Foundation</span>
+                  </div>
+                  <div className="space-y-1">
+                    {knowledgeSourcesUsed.map((src, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between rounded bg-slate-50 px-2 py-1 text-[10px]"
+                      >
+                        <span className="text-slate-700 truncate max-w-[240px] font-medium">{src}</span>
+                        <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1 rounded">VERIFIED</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Generation Preview Area / Lifecycle States */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-subtle space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-bold text-slate-900">Generation Preview</h3>
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
-                {providerStatus?.configured && !useDemoMode
-                  ? 'Gemini Image Engine'
-                  : 'Demo Preview'}
-              </span>
+          {/* 2. GEMINI PRO WEB HANDOFF PANEL (When in Web Handoff mode & ready/waiting) */}
+          {generationMode === 'gemini-web-handoff' && (generationState === 'handoff_ready' || generationState === 'waiting_gemini' || generationState === 'success') && (
+            <div className="rounded-2xl border border-emerald-200 bg-gradient-to-b from-emerald-50/40 to-white p-5 shadow-subtle space-y-4 animate-fade-in">
+              <div className="flex items-center justify-between border-b border-emerald-100 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-emerald-600 animate-pulse" />
+                  <h3 className="text-xs font-bold text-slate-900 tracking-wide uppercase">GEMINI PRO HANDOFF</h3>
+                </div>
+                <span className="rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">
+                  Ready
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleCopyPrompt(preparedWebPrompt, 'Prompt copied!')}
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-gima-navy px-3 py-2 text-xs font-bold text-white hover:bg-gima-navy-light transition-all shadow-subtle"
+                >
+                  <Copy className="h-3.5 w-3.5 text-gima-gold" />
+                  <span>{copiedPromptStatus || 'COPY GEMINI PROMPT'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleOpenGemini}
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-800 hover:bg-slate-50 transition-all shadow-subtle"
+                >
+                  <ExternalLink className="h-3.5 w-3.5 text-emerald-600" />
+                  <span>OPEN GEMINI</span>
+                </button>
+              </div>
+
+              {selectedAssets.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleDownloadAllReferences}
+                  className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+                >
+                  <FileDown className="h-3.5 w-3.5 text-gima-navy" />
+                  <span>Download {selectedAssets.length} Selected Reference Assets</span>
+                </button>
+              )}
+
+              {/* Dropzone container */}
+              <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`rounded-xl border-2 border-dashed p-4 text-center transition-all ${
+                  isDragOver
+                    ? 'border-gima-navy bg-blue-50/80 scale-[1.01]'
+                    : 'border-slate-300 bg-white hover:border-slate-400'
+                }`}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/jpg,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      processImportedImageFile(e.target.files[0]);
+                    }
+                  }}
+                />
+
+                <div className="flex flex-col items-center justify-center space-y-1.5">
+                  <div className="h-8 w-8 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center">
+                    <ImageIcon className="h-4 w-4" />
+                  </div>
+                  <p className="text-xs font-bold text-slate-800">
+                    Drop Gemini image here or press <kbd className="px-1 py-0.5 rounded bg-slate-100 text-[10px]">Ctrl+V</kbd>
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="rounded-lg bg-slate-100 border border-slate-200 px-2.5 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-200"
+                  >
+                    Choose Image File
+                  </button>
+                </div>
+              </div>
+
+              {importError && (
+                <div className="rounded-lg bg-red-50 border border-red-200 p-2 text-xs text-red-700 flex items-center gap-1.5">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                  <span>{importError}</span>
+                </div>
+              )}
+              {importSuccessMsg && (
+                <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-2 text-xs text-emerald-800 flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                  <span>{importSuccessMsg}</span>
+                </div>
+              )}
             </div>
+          )}
 
-            {/* State: Idle */}
-            {generationState === 'idle' && (
-              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 p-8 text-center bg-slate-50/50">
-                <Sparkles className="h-8 w-8 text-slate-300 mb-2" />
-                <p className="text-xs font-semibold text-slate-700">Awaiting Generation Trigger</p>
-                <p className="text-[11px] text-slate-500 max-w-xs mt-1">
-                  Adjust parameters on the left and click &ldquo;Generate Creative&rdquo; to execute the generation pipeline.
-                </p>
-              </div>
-            )}
+          {/* 3. DEDICATED GENERATED CREATIVES SECTION (PHASE 3.1 PROGRESSIVE GRID) */}
+          {(slots.length > 0 || isGenerating) && (
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-subtle space-y-4 animate-fade-in">
+              {/* Header with Status and TTFI Metrics */}
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-gima-gold-dark" />
+                  <h3 className="text-sm font-bold text-slate-900 tracking-tight">
+                    GENERATED CREATIVES
+                  </h3>
+                </div>
 
-            {/* State: Processing */}
-            {(generationState === 'preparing' ||
-              generationState === 'retrieving' ||
-              generationState === 'building_brief' ||
-              generationState === 'generating' ||
-              generationState === 'review') && (
-              <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-6 text-center space-y-3 animate-fade-in">
-                <div className="h-2 w-full overflow-hidden rounded-full bg-blue-100">
-                  <div
-                    className="h-full bg-gima-navy transition-all duration-300"
-                    style={{ width: `${progressPercent}%` }}
-                  />
-                </div>
-                <div className="flex items-center justify-center gap-2">
-                  <RefreshCw className="h-4 w-4 animate-spin text-gima-navy" />
-                  <p className="text-xs font-bold text-gima-navy">{progressMsg}</p>
-                </div>
-                <p className="text-[10px] text-slate-500">
-                  Applying authentic GIMA brand tokens & clinical source references...
-                </p>
-              </div>
-            )}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Status badge */}
+                  {isGenerating ? (
+                    <span className="flex items-center gap-1.5 text-[11px] font-bold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200 animate-pulse">
+                      <RefreshCw className="h-3 w-3 animate-spin text-amber-700" />
+                      Generating {slots.filter((s) => s.status === 'ready').length} of {slots.length}...
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                      <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                      {slots.filter((s) => s.status === 'ready').length} of {slots.length} ready
+                    </span>
+                  )}
 
-            {/* State: Error */}
-            {generationState === 'error' && (
-              <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs text-red-700 space-y-2">
-                <div className="flex items-center gap-2 font-bold">
-                  <AlertCircle className="h-4 w-4" />
-                  <span>Creative generation notice</span>
-                </div>
-                <p>{progressMsg}</p>
-                <div className="flex items-center gap-2 pt-1">
-                  <button
-                    onClick={() => handleGenerate()}
-                    className="rounded-lg bg-red-700 px-3 py-1.5 text-white font-semibold text-[11px] hover:bg-red-800"
-                  >
-                    Retry Generation
-                  </button>
-                  <button
-                    onClick={() => {
-                      setUseDemoMode(true);
-                      handleGenerate();
-                    }}
-                    className="rounded-lg bg-slate-200 px-3 py-1.5 text-slate-800 font-semibold text-[11px] hover:bg-slate-300"
-                  >
-                    Try Demo Preview Mode
-                  </button>
+                  {/* TTFI (Time to First Image) Metric Badge */}
+                  {timeToFirstImage && (
+                    <span
+                      className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 flex items-center gap-1"
+                      title="First image visible latency (Time to First Image)"
+                    >
+                      ⚡ TTFI: {(timeToFirstImage / 1000).toFixed(1)}s
+                    </span>
+                  )}
+
+                  {totalGenerationTime && (
+                    <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                      Total: {(totalGenerationTime / 1000).toFixed(1)}s
+                    </span>
+                  )}
                 </div>
               </div>
-            )}
 
-            {/* State: Success / Rendered Visuals */}
-            {generationState === 'success' && generatedVariations.length > 0 && (
-              <div className="space-y-4 animate-fade-in">
-                {/* Variation Tabs */}
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                  <div className="flex items-center gap-1.5">
-                    {generatedVariations.map((v, idx) => (
-                      <button
-                        key={v.id}
-                        onClick={() => setActiveVariationIdx(idx)}
-                        className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
-                          activeVariationIdx === idx
-                            ? 'bg-gima-navy text-white shadow-subtle'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                        }`}
+              {/* VERTICAL RESULT STACK: 1 column, all cards 100% width, same ratio, same height, exact vertical spacing */}
+              <div className="flex flex-col space-y-4 w-full">
+                {slots.map((slot) => {
+                  // SKELETON SLOT: Stationary card, aspect ratio locked, internal shimmer clipped inside
+                  if (slot.status === 'generating' || slot.status === 'pending') {
+                    return (
+                      <div
+                        key={`slot-${slot.index}`}
+                        id={`slot-card-${slot.index}`}
+                        role="status"
+                        aria-label={`Generating variation ${slot.variationNumber}`}
+                        className={`relative w-full rounded-2xl overflow-hidden border border-slate-200 bg-slate-950 ${getAspectClass(
+                          aspectRatio
+                        )} shadow-card select-none`}
                       >
-                        Variation {v.variationNumber}
+                        {/* 1. Base dark background */}
+                        <div className="absolute inset-0 bg-gradient-to-b from-slate-900 to-slate-950" />
+
+                        {/* 2. Soft internal light sweep / shimmer (CLIPPED strictly by parent overflow-hidden) */}
+                        <div
+                          className="absolute inset-0 -translate-x-full animate-internal-shimmer pointer-events-none"
+                          aria-hidden="true"
+                        >
+                          <div className="h-full w-full bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
+                        </div>
+
+                        {/* 3. Subtle ambient radial highlight */}
+                        <div
+                          className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-800/25 via-transparent to-transparent pointer-events-none"
+                          aria-hidden="true"
+                        />
+
+                        {/* 4. Stationary, centered creation indicator */}
+                        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center select-none z-10">
+                          <div className="h-10 w-10 rounded-full bg-white/[0.06] border border-white/10 flex items-center justify-center text-gima-gold shadow-subtle mb-3 backdrop-blur-sm">
+                            <Sparkles className="h-4 w-4 text-gima-gold-light opacity-90" />
+                          </div>
+                          <span className="rounded-full bg-black/60 border border-white/10 px-3 py-0.5 text-[10px] font-bold text-white tracking-wide uppercase">
+                            Variation {slot.variationNumber}
+                          </span>
+                          <p className="text-xs font-semibold text-slate-200 mt-2">
+                            Creating visual...
+                          </p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">
+                            Applying GIMA clinical aesthetics
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // ERROR SLOT: Stationary card, isolated error state with Retry button
+                  if (slot.status === 'error') {
+                    return (
+                      <div
+                        key={`slot-${slot.index}`}
+                        id={`slot-card-${slot.index}`}
+                        role="alert"
+                        className={`relative w-full rounded-2xl overflow-hidden border border-slate-200 bg-slate-950 ${getAspectClass(
+                          aspectRatio
+                        )} shadow-card text-white`}
+                      >
+                        {/* 1. Base dark error background */}
+                        <div className="absolute inset-0 bg-gradient-to-b from-red-950/80 to-slate-950" />
+
+                        {/* 2. Stationary, centered error indicator */}
+                        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center select-none z-10 text-white">
+                          <div className="h-10 w-10 rounded-full bg-red-900/60 border border-red-500/30 flex items-center justify-center text-red-400 mb-2">
+                            <AlertCircle className="h-5 w-5" />
+                          </div>
+                          <span className="rounded-full bg-black/60 border border-red-400/30 px-3 py-0.5 text-[10px] font-bold text-red-200">
+                            Variation {slot.variationNumber}
+                          </span>
+                          <p className="text-xs font-bold text-white mt-2">Generation Failed</p>
+                          <p className="text-[10px] text-red-200/90 mt-1 max-w-[240px] leading-snug">
+                            {slot.error || 'Request timed out or failed'}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => handleRetrySlot(slot.index)}
+                            disabled={isGenerating}
+                            className="mt-3.5 inline-flex items-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-500 disabled:opacity-50 px-3 py-1.5 text-xs font-bold text-white transition-colors shadow-sm"
+                          >
+                            <RefreshCw className="h-3 w-3" />
+                            <span>Retry Slot</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // READY SLOT: Stationary card, creative visually dominating, floating glass action overlays
+                  if (slot.status === 'ready' && slot.variation) {
+                    const currentVar = slot.variation;
+                    return (
+                      <div
+                        key={`slot-${slot.index}`}
+                        id={`slot-card-${slot.index}`}
+                        className={`relative w-full rounded-2xl overflow-hidden border border-slate-200 bg-slate-950 ${getAspectClass(
+                          aspectRatio
+                        )} group shadow-card`}
+                      >
+                        {/* Dominant Image with smooth internal fade-in (pure opacity, zero translation) */}
+                        <img
+                          src={currentVar.previewImageUrl}
+                          alt={`GIMA Creative — ${course} (Variation ${slot.variationNumber})`}
+                          className="h-full w-full object-cover cursor-pointer transition-opacity duration-200"
+                          onClick={() => setSelectedLightboxSlot(slot)}
+                        />
+
+                        {/* Top Overlay Badge Bar */}
+                        <div className="absolute top-3 inset-x-3 flex items-center justify-between pointer-events-none z-10">
+                          <span className="rounded-full bg-black/65 backdrop-blur-md px-2.5 py-0.5 text-[10px] font-bold text-white border border-white/15">
+                            Variation {slot.variationNumber}
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="rounded-full bg-black/65 backdrop-blur-md px-2.5 py-0.5 text-[9px] font-semibold text-gima-gold-light border border-white/15">
+                              {currentVar.source === 'pollinations'
+                                ? (currentVar.modelUsed || selectedPollinationsModel).split('/')[1] || currentVar.modelUsed
+                                : currentVar.source}
+                            </span>
+                            {slot.durationMs && (
+                              <span className="rounded-full bg-black/65 backdrop-blur-md px-2 py-0.5 text-[9px] font-medium text-slate-300 border border-white/15">
+                                {(slot.durationMs / 1000).toFixed(1)}s
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Subtle dark gradient overlay for bottom actions */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-transparent to-transparent pointer-events-none opacity-85 group-hover:opacity-100 transition-opacity" />
+
+                        {/* Bottom Floating Glass Action Bar */}
+                        <div className="absolute bottom-3 inset-x-3 flex items-center justify-between gap-1.5 z-10">
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleDownload(currentVar.previewImageUrl, slot.variationNumber)}
+                              className="rounded-lg bg-black/70 hover:bg-black/90 backdrop-blur-md p-1.5 text-white transition-colors border border-white/15"
+                              title="Download Image"
+                              aria-label={`Download Variation ${slot.variationNumber}`}
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedLightboxSlot(slot)}
+                              className="rounded-lg bg-black/70 hover:bg-black/90 backdrop-blur-md p-1.5 text-white transition-colors border border-white/15"
+                              title="Fullscreen Preview"
+                              aria-label={`Fullscreen Variation ${slot.variationNumber}`}
+                            >
+                              <Maximize2 className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSaveSlotToProjects(slot)}
+                              className="rounded-lg bg-black/70 hover:bg-black/90 backdrop-blur-md p-1.5 text-white transition-colors border border-white/15"
+                              title="Save to Projects"
+                              aria-label={`Save Variation ${slot.variationNumber} to Projects`}
+                            >
+                              <FolderPlus className="h-3.5 w-3.5 text-gima-gold" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleUseAsReference(currentVar.previewImageUrl)}
+                              className="rounded-lg bg-black/70 hover:bg-black/90 backdrop-blur-md p-1.5 text-white transition-colors border border-white/15"
+                              title="Use as Reference Asset"
+                              aria-label={`Use Variation ${slot.variationNumber} as Reference`}
+                            >
+                              <PlusCircle className="h-3.5 w-3.5 text-emerald-400" />
+                            </button>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => setIsRefining(true)}
+                            className="rounded-lg bg-gima-navy/90 hover:bg-gima-navy backdrop-blur-md px-2.5 py-1 text-[10px] font-bold text-white transition-colors border border-white/15 flex items-center gap-1.5 shadow-subtle"
+                          >
+                            <MessageSquare className="h-3 w-3" />
+                            <span>Refine</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return null;
+                })}
+              </div>
+
+              {/* Refinement Drawer */}
+              {isRefining && (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3.5 space-y-2.5 animate-fade-in mt-4">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                    <span className="flex items-center gap-1.5">
+                      <Sparkles className="h-3.5 w-3.5 text-emerald-700" />
+                      {generationMode === 'pollinations'
+                        ? 'Refine Creative with Pollinations AI:'
+                        : 'Refine in Gemini:'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsRefining(false)}
+                      className="text-slate-400 hover:text-slate-700"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5 pt-0.5">
+                    {[
+                      'Make it more premium.',
+                      'Keep the portrait but change the background.',
+                      'Make the headline more dominant.',
+                      'Create a cleaner healthcare layout.',
+                    ].map((chip) => (
+                      <button
+                        type="button"
+                        key={chip}
+                        onClick={() => setRefinementInput(chip)}
+                        className="rounded-full bg-white border border-slate-200 px-2 py-0.5 text-[10px] font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+                      >
+                        {chip}
                       </button>
                     ))}
                   </div>
-                  <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
-                    <CheckCircle2 className="h-3 w-3" /> Creative Ready
-                  </span>
-                </div>
 
-                {/* Composition Card Preview */}
-                {(() => {
-                  const current = generatedVariations[activeVariationIdx];
-                  return (
-                    <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-900 text-white shadow-card">
-                      {/* Image Viewer with Zoom Trigger */}
-                      <div className="relative aspect-video w-full overflow-hidden bg-slate-800 group">
-                        <img
-                          src={current.previewImageUrl}
-                          alt="Creative Output"
-                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-102 cursor-pointer"
-                          onClick={() => setIsLightboxOpen(true)}
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/40 to-transparent pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="e.g. Keep the clinical look but enhance contrast and use a cleaner scientific layout..."
+                    value={refinementInput}
+                    onChange={(e) => setRefinementInput(e.target.value)}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-800 focus:border-gima-navy focus:outline-none"
+                  />
 
-                        {/* Lightbox / Zoom Button */}
-                        <button
-                          onClick={() => setIsLightboxOpen(true)}
-                          className="absolute bottom-3 right-3 rounded-lg bg-black/60 backdrop-blur-md p-1.5 text-white hover:bg-black/80 transition-colors"
-                          title="Open full-resolution preview"
-                        >
-                          <Maximize2 className="h-4 w-4" />
-                        </button>
-
-                        {/* Style Badge */}
-                        <div className="absolute top-3 left-3 rounded-full bg-black/60 backdrop-blur-md px-2.5 py-1 text-[10px] font-semibold text-gima-gold-light border border-white/10">
-                          {current.style}
-                        </div>
-
-                        {/* Format tag */}
-                        <div className="absolute top-3 right-3 rounded-full bg-black/60 backdrop-blur-md px-2.5 py-1 text-[10px] font-semibold text-slate-200 border border-white/10">
-                          {current.aspectRatio}
-                        </div>
-                      </div>
-
-                      {/* Content Composition Area */}
-                      <div className="p-5 space-y-3 bg-gradient-to-b from-slate-950 to-slate-900">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-gima-gold-light">
-                          {brandConfig.acronym} CERTIFIED CURRICULUM
-                        </span>
-
-                        <h4 className="text-base font-extrabold text-white leading-snug">
-                          {current.compositionHeadline}
-                        </h4>
-
-                        <p className="text-xs text-slate-300 leading-relaxed">
-                          {current.compositionSubhead}
-                        </p>
-
-                        <div className="pt-2 flex items-center justify-between">
-                          <span className="inline-flex items-center rounded-lg bg-gima-gold px-3 py-1.5 text-xs font-bold text-gima-navy-dark shadow-sm">
-                            {current.ctaText}
-                          </span>
-                          <span className="text-[10px] text-slate-400">
-                            {audience.slice(0, 30)}...
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Truthful Engine Banner */}
-                      <div className="border-t border-white/10 bg-black/40 px-4 py-2 flex items-center justify-between text-[10px] text-slate-400">
-                        <span>
-                          {current.isRealGemini
-                            ? `Generated with Google Gemini (${current.modelUsed || 'gemini-nano-banana-2.1'})`
-                            : 'Deterministic Preview Composition'}
-                        </span>
-                        {current.generationTimeMs && (
-                          <span className="text-slate-400">
-                            {current.generationTimeMs}ms
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* Primary Action Buttons: Download, Save, Iterate */}
-                <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <button
-                    onClick={() =>
-                      handleDownload(
-                        generatedVariations[activeVariationIdx].previewImageUrl,
-                        activeVariationIdx + 1
-                      )
-                    }
-                    className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white py-2 text-xs font-bold text-slate-800 hover:bg-slate-50 transition-colors shadow-subtle"
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                    <span>Download Image</span>
-                  </button>
-
-                  <button
-                    onClick={handleSaveToProjects}
-                    disabled={savedProjectSuccess}
-                    className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-all shadow-subtle ${
-                      savedProjectSuccess
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-gima-navy text-white hover:bg-gima-navy-light'
-                    }`}
-                  >
-                    {savedProjectSuccess ? (
-                      <>
-                        <Check className="h-3.5 w-3.5" />
-                        <span>Saved to Projects</span>
-                      </>
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    {generationMode === 'pollinations' ? (
+                      <button
+                        type="button"
+                        disabled={isGenerating}
+                        onClick={() => {
+                          if (refinementInput.trim()) {
+                            handleDirectGeneration(`Refinement: ${refinementInput}`);
+                            setIsRefining(false);
+                          }
+                        }}
+                        className="flex-1 rounded-lg bg-gima-navy px-3 py-1.5 text-xs font-bold text-white hover:bg-gima-navy-light flex items-center justify-center gap-1.5 shadow-subtle disabled:opacity-50"
+                      >
+                        <Sparkles className="h-3.5 w-3.5 text-gima-gold-light" />
+                        <span>RE-GENERATE WITH POLLINATIONS AI</span>
+                      </button>
                     ) : (
                       <>
-                        <FolderPlus className="h-3.5 w-3.5" />
-                        <span>Save to Projects</span>
+                        <button
+                          type="button"
+                          onClick={handleGenerateRefinementPrompt}
+                          className="flex-1 rounded-lg bg-gima-navy px-3 py-1.5 text-xs font-bold text-white hover:bg-gima-navy-light flex items-center justify-center gap-1.5"
+                        >
+                          <Copy className="h-3 w-3" />
+                          <span>
+                            {copiedRefinementStatus ? 'Refinement Copied!' : 'COPY UPDATED GEMINI PROMPT'}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleOpenGemini}
+                          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-slate-50 flex items-center gap-1"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          <span>OPEN GEMINI</span>
+                        </button>
                       </>
                     )}
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      handleUseAsReference(
-                        generatedVariations[activeVariationIdx].previewImageUrl
-                      )
-                    }
-                    className="rounded-xl border border-slate-200 bg-white p-2 text-slate-700 hover:bg-slate-50 transition-colors"
-                    title="Use as reference asset for next generation"
-                  >
-                    <PlusCircle className="h-4 w-4" />
-                  </button>
-
-                  <button
-                    onClick={() => setIsIterating(!isIterating)}
-                    className="rounded-xl border border-slate-200 bg-white p-2 text-slate-700 hover:bg-slate-50 transition-colors"
-                    title="Iterate & Regenerate with prompt"
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                  </button>
-                </div>
-
-                {/* Regeneration / Iteration Bar */}
-                {isIterating && (
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2 animate-fade-in">
-                    <div className="flex items-center justify-between text-xs font-bold text-slate-800">
-                      <span>Iterate on this composition:</span>
-                      <button
-                        onClick={() => setIsIterating(false)}
-                        className="text-slate-400 hover:text-slate-700"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                    <input
-                      type="text"
-                      placeholder="e.g. Keep composition but make the headline more prominent and clinical..."
-                      value={iterationPrompt}
-                      onChange={(e) => setIterationPrompt(e.target.value)}
-                      className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-800 focus:border-gima-navy focus:outline-none"
-                    />
-                    <div className="flex justify-end">
-                      <button
-                        onClick={() => handleGenerate(iterationPrompt)}
-                        className="rounded-lg bg-gima-navy px-3 py-1 text-xs font-bold text-white hover:bg-gima-navy-light"
-                      >
-                        Regenerate Variation
-                      </button>
-                    </div>
                   </div>
-                )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 4. IDLE STUDIO PLACEHOLDER (When no slots and not generating) */}
+          {slots.length === 0 && !isGenerating && generationState === 'idle' && (
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 p-10 text-center bg-white shadow-subtle space-y-3">
+              <div className="h-12 w-12 rounded-2xl bg-amber-50 text-gima-gold-dark flex items-center justify-center border border-amber-100">
+                <Sparkles className="h-6 w-6" />
               </div>
-            )}
-          </div>
+              <div>
+                <p className="text-sm font-bold text-slate-800">Awaiting Creative Generation</p>
+                <p className="text-xs text-slate-500 max-w-sm mt-1 leading-relaxed">
+                  Configure campaign specifications on the left and click{' '}
+                  <strong className="text-slate-700">
+                    {generationMode === 'pollinations'
+                      ? 'GENERATE CREATIVE'
+                      : 'PREPARE IN GEMINI'}
+                  </strong>
+                  . The studio will progressively generate and render matching creative slots.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1177,37 +1984,102 @@ function CreateCreativeContent() {
         onToggleAsset={handleToggleAsset}
       />
 
-      {/* Image Lightbox Modal */}
-      {isLightboxOpen && generatedVariations[activeVariationIdx] && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-          <div className="relative max-h-[92vh] max-w-4xl w-full flex flex-col items-center justify-center">
-            <button
-              onClick={() => setIsLightboxOpen(false)}
-              className="absolute -top-10 right-0 rounded-full bg-white/20 p-1.5 text-white hover:bg-white/40 transition-colors"
+      {/* FULLSCREEN CREATIVE VIEWER LIGHTBOX (Supports ESC key to close) */}
+      {(selectedLightboxSlot || isLightboxOpen) && (
+        (() => {
+          const activeSlot = selectedLightboxSlot || (slots.find((s) => s.status === 'ready') ?? null);
+          const activeVar = activeSlot?.variation || generatedVariations[activeVariationIdx];
+          if (!activeVar) return null;
+
+          return (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-fade-in"
+              onClick={() => {
+                setSelectedLightboxSlot(null);
+                setIsLightboxOpen(false);
+              }}
             >
-              <X className="h-5 w-5" />
-            </button>
-            <img
-              src={generatedVariations[activeVariationIdx].previewImageUrl}
-              alt="High resolution view"
-              className="max-h-[85vh] w-auto rounded-xl shadow-2xl object-contain border border-white/20"
-            />
-            <div className="mt-3 flex items-center gap-3">
-              <button
-                onClick={() =>
-                  handleDownload(
-                    generatedVariations[activeVariationIdx].previewImageUrl,
-                    activeVariationIdx + 1
-                  )
-                }
-                className="rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-slate-900 shadow hover:bg-slate-100 flex items-center gap-1.5"
+              <div
+                className="relative max-h-[94vh] max-w-5xl w-full overflow-hidden rounded-2xl bg-slate-950 border border-slate-800 shadow-2xl flex flex-col"
+                onClick={(e) => e.stopPropagation()}
               >
-                <Download className="h-3.5 w-3.5" />
-                <span>Download High-Res</span>
-              </button>
+                {/* Lightbox Header */}
+                <div className="flex items-center justify-between px-5 py-3 border-b border-slate-800/80 bg-slate-900/60 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-full bg-gima-gold/20 text-gima-gold-light border border-gima-gold/30 px-2.5 py-0.5 text-[10px] font-bold">
+                      Variation {activeSlot?.variationNumber || activeVariationIdx + 1}
+                    </span>
+                    <span className="text-slate-400 font-medium truncate max-w-sm">
+                      {course} • {activeVar.modelUsed || selectedPollinationsModel}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setSelectedLightboxSlot(null);
+                      setIsLightboxOpen(false);
+                    }}
+                    className="rounded-full bg-white/10 hover:bg-white/20 p-1.5 text-white transition-colors"
+                    title="Close (or press ESC)"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {/* Lightbox Image Preview */}
+                <div className="p-4 flex items-center justify-center bg-black/70 flex-1 overflow-auto max-h-[75vh]">
+                  <img
+                    src={activeVar.previewImageUrl}
+                    alt="Full Resolution Creative Preview"
+                    className="max-h-[70vh] w-auto object-contain mx-auto rounded-lg shadow-2xl"
+                  />
+                </div>
+
+                {/* Lightbox Actions Footer */}
+                <div className="p-4 bg-slate-950 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-300 border-t border-slate-800">
+                  <div className="text-[11px] text-slate-400">
+                    Format: <strong className="text-white">{activeVar.aspectRatio}</strong> • Provider:{' '}
+                    <strong className="text-white">{activeVar.source}</strong>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleDownload(activeVar.previewImageUrl, activeSlot?.variationNumber || 1)}
+                      className="flex items-center gap-1.5 rounded-lg bg-white/10 hover:bg-white/20 px-3 py-1.5 font-bold text-white text-xs transition-colors"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      <span>Download</span>
+                    </button>
+
+                    {activeSlot && (
+                      <button
+                        type="button"
+                        onClick={() => handleSaveSlotToProjects(activeSlot)}
+                        className="flex items-center gap-1.5 rounded-lg bg-gima-navy hover:bg-gima-navy-light px-3 py-1.5 font-bold text-white text-xs transition-colors"
+                      >
+                        <FolderPlus className="h-3.5 w-3.5 text-gima-gold" />
+                        <span>Save to Projects</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleUseAsReference(activeVar.previewImageUrl);
+                        setSelectedLightboxSlot(null);
+                        setIsLightboxOpen(false);
+                      }}
+                      className="flex items-center gap-1.5 rounded-lg bg-white/10 hover:bg-white/20 px-3 py-1.5 font-semibold text-white text-xs transition-colors"
+                    >
+                      <PlusCircle className="h-3.5 w-3.5 text-emerald-400" />
+                      <span>Use As Reference</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          );
+        })()
       )}
     </div>
   );
@@ -1215,13 +2087,7 @@ function CreateCreativeContent() {
 
 export default function CreateCreativePage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex h-64 items-center justify-center">
-          <RefreshCw className="h-6 w-6 animate-spin text-gima-navy" />
-        </div>
-      }
-    >
+    <Suspense fallback={<div className="p-8 text-center text-xs text-slate-400">Loading Creative Studio...</div>}>
       <CreateCreativeContent />
     </Suspense>
   );

@@ -135,8 +135,23 @@ export interface GenerationRequest {
   extraPrompt: string;
   retrievedKnowledge: KnowledgeItem[];
   brandInstructions: string[];
+  variationIndex?: number;
   createdAt: string;
 }
+
+export type SlotStatus = 'pending' | 'generating' | 'ready' | 'error';
+
+export interface GenerationSlot {
+  index: number;
+  variationNumber: number;
+  status: SlotStatus;
+  variation?: GeneratedVariation;
+  error?: string;
+  startTime?: number;
+  durationMs?: number;
+}
+
+export type GenerationMode = 'pollinations' | 'gemini-web-handoff' | 'gemini-api' | 'demo-preview';
 
 export type ProjectStatus = 'Draft' | 'In Review' | 'Approved' | 'Archived';
 
@@ -155,6 +170,8 @@ export interface GeneratedVariation {
   generationTimeMs?: number;
   promptSummary?: string;
   isRealGemini?: boolean;
+  source?: 'pollinations' | 'gemini-web-handoff' | 'gemini-api' | 'demo-preview';
+  isWebHandoff?: boolean;
 }
 
 export interface ApiGenerationResponse {
@@ -191,6 +208,44 @@ export interface ApiProviderStatus {
   size: string;
   mode: 'real' | 'demo';
   message: string;
+  imageQuotaAvailable?: boolean;
+  recommendedMode?: GenerationMode;
+  pollinationsConfigured?: boolean;
+  pollinationsBalance?: number;
+}
+
+export interface PollinationsModelItem {
+  id: string;
+  name: string;
+  publisher: string;
+  aliases: string[];
+  description: string;
+  pricing?: {
+    currency?: string;
+    completionImageTokens?: string;
+    promptTextTokens?: string;
+    promptImageTokens?: string;
+  };
+  inputModalities: string[];
+  outputModalities: string[];
+  supportsReferenceImages: boolean;
+  maxReferenceImages: number;
+  health?: string;
+  paidOnly?: boolean;
+}
+
+export interface PollinationsStatusResponse {
+  provider: string;
+  configured: boolean;
+  keyType: 'secret' | 'app' | 'none';
+  baseUrl: string;
+  modelConfigured: string;
+  accountBalanceAvailable: boolean;
+  balance?: number;
+  balanceText?: string;
+  githubUsername?: string;
+  imageGenerationReachable: boolean;
+  message: string;
 }
 
 export interface ProjectRecord {
@@ -207,6 +262,13 @@ export interface ProjectRecord {
   thumbnail: string;
   request: GenerationRequest;
   variations: GeneratedVariation[];
+  provider?: 'pollinations' | 'gemini-web-handoff' | 'gemini-api' | 'demo-preview';
+  prompt?: string;
+  extraPrompt?: string;
+  knowledgeSources?: string[];
+  referenceAssets?: string[];
+  generatedAt?: string;
+  outputFile?: string;
 }
 
 export type GenerationState =
@@ -217,11 +279,27 @@ export type GenerationState =
   | 'generating'
   | 'review'
   | 'success'
-  | 'error';
+  | 'error'
+  | 'handoff_ready'
+  | 'waiting_gemini';
+
+export type ActivityEventType =
+  | 'knowledge_indexed'
+  | 'pdf_processed'
+  | 'project_created'
+  | 'creative_draft'
+  | 'asset_selected'
+  | 'generation_demo'
+  | 'handoff_prepared'
+  | 'prompt_copied'
+  | 'gemini_tab_opened'
+  | 'references_exported'
+  | 'gemini_result_imported'
+  | 'project_saved';
 
 export interface ActivityEvent {
   id: string;
-  type: 'knowledge_indexed' | 'pdf_processed' | 'project_created' | 'creative_draft' | 'asset_selected' | 'generation_demo';
+  type: ActivityEventType;
   title: string;
   description: string;
   timestamp: string;

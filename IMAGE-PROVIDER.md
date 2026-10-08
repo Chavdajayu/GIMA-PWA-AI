@@ -1,123 +1,176 @@
-# GIMA AI Studio — Image Provider Architecture (Phase 2)
+# GIMA AI Studio — Creative Generation Architecture (Phase 3: Pollinations Real Image Generation)
 
-## 1. Provider-Neutral Architecture
-The Create Creative interface communicates exclusively with an abstracted service: `imageProvider.generate(request)`.
+## 1. Multi-Provider Architecture
 
-The UI neither knows nor cares whether generation is handled by the real Google Gemini API or the deterministic demo preview engine.
+The Create Creative studio operates on a modular, multi-provider model:
 
----
+1. **Pollinations AI (Phase 3 Primary Real-Image Provider)**:
+   - Direct, server-side real AI image generation via `https://gen.pollinations.ai`.
+   - Authenticated with server-side secret key (`POLLINATIONS_API_KEY=your-server-secret`) stored exclusively in `.env.local` or Vercel Environment Variables.
+   - Dynamic model discovery from the live catalog (16 models currently available, including `openai/gpt-image-2`, `tongyi-mai/z-image-turbo`, `microsoft/mai-image-2.6-flash`, `black-forest-labs/flux.1-schnell`).
+   - Pollen balance verification (`/account/balance` -> ~0.206 Pollen available).
+   - Accurately labeled: *"Pollinations account-funded generation"*.
+   - In-app refinement with prompt chips and one-click re-generation.
 
-## 2. Gemini Integration (Current @google/genai SDK)
+2. **Gemini Pro Web Handoff (Phase 2B ₹0 Workflow)**:
+   - Uses the user's signed-in **Jio Google AI Pro** account at `gemini.google.com/app`.
+   - GIMA AI Studio handles all clinical knowledge retrieval (RAG from 12 Free-Course PDFs + website crawl), asset resolution, compliance guardrails, and structured prompt engineering.
+   - The user opens Gemini, pastes the prompt, attaches downloaded reference assets, and imports the resulting image back into the PWA via **Drag & Drop**, **File Picker**, or **Ctrl+V Clipboard Paste**.
+   - **Zero API Billing / ₹0 Cost**.
 
-The application uses Google's official `@google/genai` JavaScript SDK with the modern **Nano Banana** family:
+3. **Google Gemini API**:
+   - Server-side integration via `@google/genai` calling `gemini-nano-banana-2.1` or `gemini-3-pro-image`.
+   - **Tested & Verified Finding**: Google Free-Tier projects assign `limit: 0` for image generation requests (`RESOURCE_EXHAUSTED` / 429). The engine cleanly detects this and recommends Pollinations AI or Gemini Pro Web Handoff.
 
-* **Default High-Efficiency Workhorse Model**: `gemini-nano-banana-2.1`
-* **Configurable Premium Model**: `gemini-3-pro-image`
-* **Method**: `ai.models.generateContent(...)` with `{ responseModalities: ['IMAGE'], imageConfig: { aspect_ratio: ... } }`
-
-> **Note**: Stale references to legacy "Imagen 3" integrations have been replaced with the modern Gemini image generation architecture.
-
----
-
-## 3. Server-Side Security & Architecture
-
-```
-Browser (Create Studio)
-      │
-      │ POST /api/generate-image
-      ▼
-Server-side Route (src/app/api/generate-image/route.ts)
-      ├── Validates Request & Checks Cooldown
-      ├── Server-side GIMA Knowledge Retrieval (master index + 12 PDFs)
-      ├── SSRF-Safe Asset Resolution (gim-academy.com + uploaded data URLs)
-      ├── Structured Prompt Composition (GIMA clinical brand guardrails)
-      │
-      ▼
-Google Gemini API (@google/genai)
-      │
-      ▼
-Server parses inlineData image parts
-      │
-      ▼
-Browser receives generated image as Data URL + metadata
-```
-
-### Security Guardrails:
-* **Zero Client Secret Exposure**: `GEMINI_API_KEY` is strictly server-side. Never prefixed with `NEXT_PUBLIC_`.
-* **SSRF Protection**: Resolves only approved `gim-academy.com` domains and validated client data URLs. Arbitrary internal/network URLs are rejected.
-* **Double-Click & Cooldown Protection**: Prevents duplicate submissions and payload explosions.
+4. **Deterministic Demo Preview**:
+   - Generates high-fidelity preview compositions using authentic GIMA logos, Dr. Meschino portraits, and clinical curriculum citations.
+   - Transparently labeled: *"Demo Preview — not AI-generated"*.
 
 ---
 
-## 4. Request & Response Schemas
+## 2. Gemini Pro Web Handoff Workflow & Security
 
-### Request: `GenerationRequest`
-```typescript
-export interface GenerationRequest {
-  id: string;
-  title: string;
-  campaignType: CampaignType;
-  course: string;
-  topic: string;
-  platforms: PlatformType[];
-  creativeType: CreativeType;
-  aspectRatio: AspectRatioType;
-  style: VisualStyleType;
-  headline: string;
-  cta: string;
-  audience: string;
-  referenceImages: AssetItem[];
-  extraPrompt: string;
-  retrievedKnowledge: KnowledgeItem[];
-  brandInstructions: string[];
-  variationsCount: number;
-  createdAt: string;
-}
+```
+┌────────────────────────────────────────────────────────┐
+│               GIMA AI Studio (Create Page)             │
+│  - Select Course, Platform, Format, Style, References  │
+│  - GIMA Knowledge Engine retrieves 12 PDF citations   │
+└──────────────────────────┬─────────────────────────────┘
+                           │ Click [ PREPARE IN GEMINI ]
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│                GEMINI PRO HANDOFF PANEL                │
+│  - Status: Ready (Google Gemini Pro)                   │
+│  - [ COPY GEMINI PROMPT ]                              │
+│  - [ OPEN GEMINI ] -> Opens gemini.google.com/app     │
+│  - [ Download Selected References ]                    │
+└──────────────────────────┬─────────────────────────────┘
+                           │ User pastes prompt in Gemini
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│        Google Gemini Pro (gemini.google.com/app)       │
+│  - User generates creative using Jio AI Pro account    │
+│  - User copies or downloads the generated image        │
+└──────────────────────────┬─────────────────────────────┘
+                           │ Return to Studio
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│             GEMINI RESULT IMPORT (STUDIO)              │
+│  - Drag & Drop / File Picker / Ctrl+V Clipboard Paste  │
+│  - MIME type and size validation (PNG/JPG/WEBP <= 15MB)│
+│  - Badge: "Generated in Gemini Pro"                    │
+│  - Actions: Download, Save to Projects, Refine        │
+└────────────────────────────────────────────────────────┘
 ```
 
-### Response: `ApiGenerationResponse`
-```typescript
-export interface ApiGenerationResponse {
-  success: boolean;
-  provider?: {
-    id: string;
-    model: string;
-  };
-  variations?: {
-    id: string;
-    imageDataUrl: string;
-    mimeType: string;
-    promptSummary?: string;
-  }[];
-  metadata?: {
-    course: string;
-    creativeType: string;
-    aspectRatio: string;
-    generationTimeMs?: number;
-  };
-  error?: {
-    code: string;
-    message: string;
-    retryable: boolean;
-  };
-}
+### Absolute Security & Terms Compliance:
+- **No Headless Automation**: No Playwright, Puppeteer, Selenium, or CDP automation of `gemini.google.com`.
+- **Zero Credential Capture**: Never accesses or extracts Google cookies, session tokens, or browser logins.
+- **Human-in-the-Loop**: The user retains full control and oversight over their Google account.
+- **Truthful Attribution**: Imported images display `"Source: Gemini Pro Web Handoff"`.
+
+---
+
+## 3. Reference Asset Export
+
+Approved GIMA assets can be exported directly for input into Gemini Pro:
+- **API Endpoint**: `GET /api/download-asset?url=...&filename=...`
+- **SSRF Sanitization**: Rejects unapproved origins and private IP ranges.
+- **Clean Filenames**: `GIMA-Logo.png`, `GIMA-Dr-James-Meschino.png`.
+
+---
+
+## 4. Structured Web Prompt Engineering
+
+Prompts generated by `buildGeminiWebPrompt()` follow a clinical editorial hierarchy:
+
+```
+=== ROLE ===
+You are creating a professional marketing visual for Global Integrative Medicine Academy (GIMA).
+
+=== SOURCE (AUTHORITATIVE GIMA CLINICAL MATERIAL) ===
+Target Course: Theories of Aging
+Verified Clinical Topics: Cellular metabolism, longevity pathways, orthomolecular medicine...
+Authoritative Material:
+• [Theories of Aging.pdf]: Summary of cellular senescence, free radicals...
+
+=== OBJECTIVE & AUDIENCE ===
+Campaign Objective: Free Course Promotion
+Target Audience: Licensed Healthcare Professionals
+
+=== FORMAT & ASPECT RATIO ===
+Platform: Instagram
+Format: 4:5 aspect ratio (Render as 3:4 composition)
+Creative Type: Poster
+
+=== STYLE & VISUAL DIRECTION ===
+Visual Style: Clinical Editorial
+Visual Tokens: Deep navy foundation (#1e3a5f), warm gold accents, clinical margins...
+
+=== MANDATORY TEXT & COPY ===
+Headline: "Theories of Aging: Cellular Mechanisms & Longevity Science"
+Call to Action (CTA): "Enroll Free Today"
+
+=== BRAND IDENTITY ===
+Organization: Global Integrative Medicine Academy (GIMA)
+Accreditations: Board of Integrative Medicine (BOIM), Canadian Examining Board
+
+=== QUALITY DIRECTIVES ===
+Premium, polished, human-designed, professional, realistic, strong hierarchy...
+
+=== NEGATIVE CONSTRAINTS ===
+No fake medical claims, no invented credentials, no generic AI-looking neon aesthetics.
 ```
 
 ---
 
-## 5. Environment Variables & Setup
+## 5. Iteration & Refinement in Gemini
 
-Create `.env.local` in the project root:
+When a creative is imported, the user can click **Refine in Gemini** to input custom adjustments (e.g., *"Make the headline more prominent and soften background clinical contrast"*). The studio generates an updated prompt with `buildGeminiRefinementPrompt()` and provides one-click copy and navigation back to Gemini.
 
-```env
-# Required for real generation
-GEMINI_API_KEY="AIzaSy..."
+---
 
-# Configurable Model (Defaults to gemini-nano-banana-2.1)
-GEMINI_IMAGE_MODEL="gemini-nano-banana-2.1"
+## 6. Phase 3.1: Progressive Generation & Skeleton UX Architecture
 
-# Configurable Resolution (1K, 2K, 4K)
-GEMINI_IMAGE_SIZE="1K"
-```
+### 1. True Progressive Execution
+Rather than waiting sequentially for all variations before rendering (`N × 9.5s ≈ 38s`), Phase 3.1 executes variations as **independent, concurrent client-driven requests**:
+- **1 requested**: 1 immediate skeleton slot -> 1 request.
+- **2 requested**: 2 immediate skeleton slots -> 2 concurrent requests.
+- **4 requested**: 4 immediate skeleton slots -> 4 concurrent requests.
 
-If `GEMINI_API_KEY` is not present, the application automatically operates in **Deterministic Demo Mode**, displaying verified clinical compositions using real GIMA brand assets without pretending to be AI-generated.
+### 2. Time-to-First-Image (TTFI) Benchmark
+Measured in automated live tests against Pollinations `tongyi-mai/z-image-turbo`:
+- **Single Variation**: 11.22s.
+- **2 Concurrent Variations**:
+  - **Time-to-First-Image (TTFI)**: **8,676 ms (8.68s)**.
+  - **Second Image Ready**: **9,671 ms (9.67s)**.
+  - **All Variations Ready**: **9,686 ms (9.69s)**.
+Perceived latency is reduced from ~20s down to **~8.7 seconds**.
+
+### 3. Aspect-Ratio Matching Skeletons
+Skeleton cards precisely match the target creative format:
+- `4:5` -> `aspect-[4/5]`
+- `1:1` -> `aspect-square`
+- `16:9` -> `aspect-video`
+- `9:16` -> `aspect-[9/16]`
+- `A4` -> `aspect-[1/1.414]`
+
+Includes subtle CSS shimmer (`@keyframes shimmer`), small sparkle icon, "Creating visual...", and no fake progress percentages.
+
+### 4. Slot Invariant & Partial Failure Isolation
+- **Fixed Slot Order**: Slot 1 always represents Variation 1, Slot 2 represents Variation 2. Completed requests replace *only* their specific slot skeleton without shifting or reordering.
+- **Partial Failure Isolation**: If Variation 3 fails, Slots 1, 2, and 4 remain fully visible. Slot 3 displays `Variation 3 Failed [Retry Slot]` for one-click independent re-generation.
+
+### 5. Visual Dominance & Clean Creative Output
+- Removed long prompt paragraphs and dense knowledge dumps around creative images.
+- Images visually dominate with floating glass action overlays on hover:
+  - **Download**: Instant PNG download.
+  - **Fullscreen**: Lightbox viewer with ESC key support.
+  - **Save to Projects**: Local PWA project store archiving.
+  - **Use as Reference**: Pipes image into the reference asset drawer for subsequent generations.
+  - **Refine**: Quick suggestion chips and re-generation.
+- Collapsible **Live Brief & Clinical Sources** bar keeps metadata accessible without pushing the creative grid below the fold.
+
+### 6. Controlled Poster Copy
+`composePollinationsImagePrompt` uses structured, clean art direction with quoted headline/subheadline/CTA and explicit negative constraints (`no fake medical claims, no invented credentials, no gibberish text`) to prevent diffusion models from painting distorted paragraph blocks directly onto the graphic.
+
