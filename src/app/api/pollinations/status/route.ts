@@ -61,7 +61,7 @@ export async function GET(): Promise<NextResponse<PollinationsStatusResponse>> {
       }
     } catch {}
 
-    const configuredModel = process.env.POLLINATIONS_IMAGE_MODEL || 'tongyi-mai/z-image-turbo';
+    const configuredModel = (process.env.POLLINATIONS_IMAGE_MODEL || 'tongyi-mai/z-image-turbo').trim();
 
     return NextResponse.json({
       provider: 'Pollinations AI',

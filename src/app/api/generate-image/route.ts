@@ -217,7 +217,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiGeneration
     // PATH A: POLLINATIONS REAL IMAGE GENERATION (PHASE 3 / 3.1)
     // ========================================================
     if (usePollinations && pollinationsKey) {
-      const selectedModel = body.model || process.env.POLLINATIONS_IMAGE_MODEL || 'tongyi-mai/z-image-turbo';
+      const selectedModel = (body.model || process.env.POLLINATIONS_IMAGE_MODEL || 'tongyi-mai/z-image-turbo').trim();
       const pixelSize = mapAspectRatioToPixelSize(body.aspectRatio);
 
       // Check if this request is for a specific variation index (from progressive client)
