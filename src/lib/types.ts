@@ -151,6 +151,46 @@ export interface GeneratedVariation {
   style: VisualStyleType;
   isDeterministicDemo: boolean;
   notes: string;
+  modelUsed?: string;
+  generationTimeMs?: number;
+  promptSummary?: string;
+  isRealGemini?: boolean;
+}
+
+export interface ApiGenerationResponse {
+  success: boolean;
+  provider?: {
+    id: string;
+    model: string;
+  };
+  variations?: {
+    id: string;
+    imageDataUrl: string;
+    mimeType: string;
+    width?: number;
+    height?: number;
+    promptSummary?: string;
+  }[];
+  metadata?: {
+    course: string;
+    creativeType: string;
+    aspectRatio: string;
+    generationTimeMs?: number;
+  };
+  error?: {
+    code: string;
+    message: string;
+    retryable: boolean;
+  };
+}
+
+export interface ApiProviderStatus {
+  configured: boolean;
+  provider: string;
+  model: string;
+  size: string;
+  mode: 'real' | 'demo';
+  message: string;
 }
 
 export interface ProjectRecord {

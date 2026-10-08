@@ -19,7 +19,12 @@ import {
   Eye,
   CheckCircle2,
   Share2,
-  Download
+  Download,
+  X,
+  ZoomIn,
+  MessageSquare,
+  PlusCircle,
+  Cpu
 } from 'lucide-react';
 import {
   CampaignType,
@@ -32,14 +37,21 @@ import {
   GenerationRequest,
   GenerationState,
   GeneratedVariation,
-  ProjectRecord
+  ProjectRecord,
+  ApiProviderStatus
 } from '@/lib/types';
 import {
   getBrandConfig,
   getKnowledgeForCourse,
   searchKnowledge
 } from '@/lib/knowledge';
-import { getImageProvider } from '@/lib/imageProvider';
+import {
+  getImageProvider,
+  setImageProvider,
+  GeminiImageProvider,
+  DeterministicDemoProvider,
+  checkServerProviderStatus
+} from '@/lib/imageProvider';
 import { saveProject } from '@/lib/projects';
 import { logActivity } from '@/lib/activity';
 import { AssetPickerModal } from '@/components/AssetPickerModal';
@@ -119,15 +131,19 @@ const visualStyles: { title: VisualStyleType; desc: string; previewBadge: string
 ];
 
 const examplePrompts = [
+  'Create a premium, credible healthcare education promotional poster. Use a refined clinical editorial style. Keep the composition sophisticated and human-designed. Make the course title highly readable, preserve the supplied GIMA identity, avoid generic AI-looking visuals, and use strong professional visual hierarchy.',
   'Use a premium clinical look with Dr. Meschino on the right and course title on the left.',
   'Make the headline dominant and keep the GIMA logo subtle and refined at top center.',
-  'Emphasize evidence-based clinical studies, not generic healthcare stock imagery.',
-  'Highlight that this qualifies for ROHP / RNCP accreditation for regulated healthcare practitioners.',
+  'Emphasize evidence-based clinical studies on glutathione synthesis, not generic stock imagery.',
 ];
 
 function CreateCreativeContent() {
   const searchParams = useSearchParams();
   const brandConfig = useMemo(() => getBrandConfig(), []);
+
+  // Provider configuration state
+  const [providerStatus, setProviderStatus] = useState<ApiProviderStatus | null>(null);
+  const [useDemoMode, setUseDemoMode] = useState<boolean>(false);
 
   // Form State
   const [campaignType, setCampaignType] = useState<CampaignType>(
@@ -152,7 +168,7 @@ function CreateCreativeContent() {
     'Regulated Healthcare Professionals (Chiropractors, NDs, Nurses, MDs)'
   );
   const [extraPrompt, setExtraPrompt] = useState<string>('');
-  const [variationsCount, setVariationsCount] = useState<number>(2);
+  const [variationsCount, setVariationsCount] = useState<number>(1);
   const [selectedAssets, setSelectedAssets] = useState<AssetItem[]>([
     {
       id: 'asset-logo-main',
@@ -178,6 +194,19 @@ function CreateCreativeContent() {
   const [generatedVariations, setGeneratedVariations] = useState<GeneratedVariation[]>([]);
   const [activeVariationIdx, setActiveVariationIdx] = useState<number>(0);
   const [savedProjectSuccess, setSavedProjectSuccess] = useState<boolean>(false);
+  const [isLightboxOpen, setIsLightboxOpen] = useState<boolean>(false);
+  const [iterationPrompt, setIterationPrompt] = useState<string>('');
+  const [isIterating, setIsIterating] = useState<boolean>(false);
+
+  // Check server configuration on mount
+  useEffect(() => {
+    checkServerProviderStatus().then((status) => {
+      setProviderStatus(status);
+      if (!status.configured) {
+        setUseDemoMode(true);
+      }
+    });
+  }, []);
 
   // Synchronize dynamic retrieved knowledge whenever course changes
   const retrievedKnowledge = useMemo(() => {
@@ -216,12 +245,44 @@ function CreateCreativeContent() {
     });
   };
 
+  // Download Generated Image
+  const handleDownload = (dataUrl: string, varNum: number) => {
+    const link = document.createElement('a');
+    link.href = dataUrl;
+    link.download = `GIMA-${course.replace(/[^a-zA-Z0-9]/g, '_')}-var${varNum}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Add generated image to reference assets
+  const handleUseAsReference = (dataUrl: string) => {
+    const newAsset: AssetItem = {
+      id: `asset-gen-${Date.now()}`,
+      name: `Generated: ${headline.slice(0, 25)}...`,
+      category: 'Uploaded references',
+      url: dataUrl,
+      description: `Iterated generation from ${course}`,
+    };
+    setSelectedAssets((prev) => [...prev, newAsset]);
+    alert('Added generated composition to Reference Assets for further iteration!');
+  };
+
   // Execution handler
-  const handleGenerate = async () => {
+  const handleGenerate = async (customInstruction?: string) => {
+    // Prevent double submission
+    if (generationState !== 'idle' && generationState !== 'success' && generationState !== 'error') {
+      return;
+    }
+
     setGenerationState('preparing');
-    setProgressMsg('Initiating creative generation engine...');
+    setProgressMsg('Preparing creative generation engine...');
     setProgressPercent(10);
     setSavedProjectSuccess(false);
+
+    const activePrompt = customInstruction
+      ? `${extraPrompt} ${customInstruction}`.trim()
+      : extraPrompt;
 
     const request: GenerationRequest = {
       id: `gen-${Date.now()}`,
@@ -240,14 +301,20 @@ function CreateCreativeContent() {
       brandEmphasis: 'Clinical Authority',
       variationsCount,
       referenceImages: selectedAssets,
-      extraPrompt,
+      extraPrompt: activePrompt,
       retrievedKnowledge,
       brandInstructions: brandConfig.complianceRules,
       createdAt: new Date().toISOString(),
     };
 
     try {
-      const provider = getImageProvider();
+      // Choose provider: real Gemini if configured and not explicitly forcing demo, else demo
+      const provider = (providerStatus?.configured && !useDemoMode)
+        ? new GeminiImageProvider()
+        : new DeterministicDemoProvider();
+
+      setImageProvider(provider);
+
       const results = await provider.generate(request, (step, message, pct) => {
         setGenerationState(step as GenerationState);
         setProgressMsg(message);
@@ -255,12 +322,21 @@ function CreateCreativeContent() {
       });
 
       setGeneratedVariations(results);
+      setActiveVariationIdx(0);
       setGenerationState('success');
+      setIsIterating(false);
+
       logActivity({
         type: 'creative_draft',
         title: `Generated Creative: ${request.title}`,
-        description: `Produced ${results.length} variations for ${course} (${style})`,
-        metadata: { course, style, count: results.length },
+        description: `Produced ${results.length} variation(s) for ${course} using ${provider.name}`,
+        metadata: {
+          course,
+          style,
+          count: results.length,
+          model: results[0]?.modelUsed || 'default',
+          timeMs: results[0]?.generationTimeMs
+        },
       });
     } catch (err: any) {
       console.error(err);
@@ -315,7 +391,7 @@ function CreateCreativeContent() {
     logActivity({
       type: 'project_created',
       title: `Saved Project: ${projectRecord.name}`,
-      description: `Project archived with ${generatedVariations.length} variations.`,
+      description: `Project archived with ${generatedVariations.length} variation(s).`,
     });
   };
 
@@ -329,29 +405,48 @@ function CreateCreativeContent() {
               Studio Workspace
             </span>
             <span className="text-xs text-slate-400">•</span>
-            <span className="text-xs font-semibold text-gima-navy">
-              GIMA Intelligence Pipeline Active
-            </span>
+            {providerStatus?.configured && !useDemoMode ? (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                Google Gemini Active ({providerStatus.model})
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                Deterministic Demo Mode
+              </span>
+            )}
           </div>
           <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight mt-1">
             Creative Generation Studio
           </h2>
           <p className="text-xs sm:text-sm text-slate-500">
-            Configure promotional specifications backed by authoritative GIMA clinical sources.
+            Generate promotional campaigns powered by Google Gemini and authoritative GIMA clinical sources.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
+          {providerStatus?.configured && (
+            <button
+              onClick={() => setUseDemoMode(!useDemoMode)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              Mode: {useDemoMode ? 'Demo Fallback' : 'Real Gemini'}
+            </button>
+          )}
+
           <button
             onClick={() => {
               setCourse('Theories of Aging');
-              setHeadline('Evidence-Based Cellular Aging & Longevity Nutrition');
-              setCta('Access Free Course Material');
-              setExtraPrompt('Focus on Dr. Meschino lecture slides and glutathione cellular synthesis.');
+              setHeadline('Master Orthomolecular Medicine & Theories of Aging');
+              setCta('Enroll in Free Course');
+              setExtraPrompt(
+                'Create a premium, credible healthcare education promotional poster. Use a refined clinical editorial style. Keep the composition sophisticated and human-designed. Make the course title highly readable, preserve the supplied GIMA identity, avoid generic AI-looking visuals, and use strong professional visual hierarchy.'
+              );
             }}
             className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
           >
-            Load Free Course Preset
+            Load Verified Preset
           </button>
         </div>
       </div>
@@ -686,16 +781,22 @@ function CreateCreativeContent() {
               </div>
             </div>
 
-            {/* K. Generate Creative Button */}
+            {/* K. Generate Creative Button with Lock/Cooldown */}
             <div className="pt-4 border-t border-slate-100">
               <button
                 type="button"
-                onClick={handleGenerate}
-                disabled={generationState !== 'idle' && generationState !== 'success' && generationState !== 'error'}
+                onClick={() => handleGenerate()}
+                disabled={generationState === 'preparing' || generationState === 'retrieving' || generationState === 'building_brief' || generationState === 'generating' || generationState === 'review'}
                 className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-gima-navy to-gima-navy-dark px-6 py-3.5 text-sm font-bold text-white shadow-elevated hover:from-gima-navy-light hover:to-gima-navy transition-all active:scale-[0.99] disabled:opacity-50"
               >
                 <Sparkles className="h-4 w-4 text-gima-gold-light" />
-                <span>Generate Creative ({variationsCount} Variations)</span>
+                <span>
+                  {generationState === 'generating'
+                    ? 'Generating with Gemini...'
+                    : generationState === 'retrieving'
+                    ? 'Retrieving Knowledge...'
+                    : `Generate Creative (${variationsCount} Variation${variationsCount > 1 ? 's' : ''})`}
+                </span>
               </button>
             </div>
           </div>
@@ -806,7 +907,9 @@ function CreateCreativeContent() {
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-sm font-bold text-slate-900">Generation Preview</h3>
               <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
-                Phase 1 Demo Engine
+                {providerStatus?.configured && !useDemoMode
+                  ? 'Gemini Image Engine'
+                  : 'Demo Preview'}
               </span>
             </div>
 
@@ -816,12 +919,12 @@ function CreateCreativeContent() {
                 <Sparkles className="h-8 w-8 text-slate-300 mb-2" />
                 <p className="text-xs font-semibold text-slate-700">Awaiting Generation Trigger</p>
                 <p className="text-[11px] text-slate-500 max-w-xs mt-1">
-                  Adjust parameters on the left and click &ldquo;Generate Creative&rdquo; to build high-fidelity composition previews.
+                  Adjust parameters on the left and click &ldquo;Generate Creative&rdquo; to execute the generation pipeline.
                 </p>
               </div>
             )}
 
-            {/* State: Processing (Preparing / Retrieving / Generating / Review) */}
+            {/* State: Processing */}
             {(generationState === 'preparing' ||
               generationState === 'retrieving' ||
               generationState === 'building_brief' ||
@@ -849,19 +952,30 @@ function CreateCreativeContent() {
               <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs text-red-700 space-y-2">
                 <div className="flex items-center gap-2 font-bold">
                   <AlertCircle className="h-4 w-4" />
-                  <span>Creative generation service notice</span>
+                  <span>Creative generation notice</span>
                 </div>
                 <p>{progressMsg}</p>
-                <button
-                  onClick={handleGenerate}
-                  className="rounded-lg bg-red-700 px-3 py-1.5 text-white font-semibold text-[11px] hover:bg-red-800"
-                >
-                  Retry Generation
-                </button>
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    onClick={() => handleGenerate()}
+                    className="rounded-lg bg-red-700 px-3 py-1.5 text-white font-semibold text-[11px] hover:bg-red-800"
+                  >
+                    Retry Generation
+                  </button>
+                  <button
+                    onClick={() => {
+                      setUseDemoMode(true);
+                      handleGenerate();
+                    }}
+                    className="rounded-lg bg-slate-200 px-3 py-1.5 text-slate-800 font-semibold text-[11px] hover:bg-slate-300"
+                  >
+                    Try Demo Preview Mode
+                  </button>
+                </div>
               </div>
             )}
 
-            {/* State: Success / Demo Preview */}
+            {/* State: Success / Rendered Visuals */}
             {generationState === 'success' && generatedVariations.length > 0 && (
               <div className="space-y-4 animate-fade-in">
                 {/* Variation Tabs */}
@@ -882,7 +996,7 @@ function CreateCreativeContent() {
                     ))}
                   </div>
                   <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
-                    <CheckCircle2 className="h-3 w-3" /> Ready
+                    <CheckCircle2 className="h-3 w-3" /> Creative Ready
                   </span>
                 </div>
 
@@ -891,15 +1005,25 @@ function CreateCreativeContent() {
                   const current = generatedVariations[activeVariationIdx];
                   return (
                     <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-900 text-white shadow-card">
-                      {/* Visual Header / Lead asset */}
-                      <div className="relative aspect-video w-full overflow-hidden bg-slate-800">
+                      {/* Image Viewer with Zoom Trigger */}
+                      <div className="relative aspect-video w-full overflow-hidden bg-slate-800 group">
                         <img
                           src={current.previewImageUrl}
-                          alt="Creative Lead"
-                          className="h-full w-full object-cover"
+                          alt="Creative Output"
+                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-102 cursor-pointer"
+                          onClick={() => setIsLightboxOpen(true)}
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/40 to-transparent" />
-                        
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/40 to-transparent pointer-events-none" />
+
+                        {/* Lightbox / Zoom Button */}
+                        <button
+                          onClick={() => setIsLightboxOpen(true)}
+                          className="absolute bottom-3 right-3 rounded-lg bg-black/60 backdrop-blur-md p-1.5 text-white hover:bg-black/80 transition-colors"
+                          title="Open full-resolution preview"
+                        >
+                          <Maximize2 className="h-4 w-4" />
+                        </button>
+
                         {/* Style Badge */}
                         <div className="absolute top-3 left-3 rounded-full bg-black/60 backdrop-blur-md px-2.5 py-1 text-[10px] font-semibold text-gima-gold-light border border-white/10">
                           {current.style}
@@ -935,47 +1059,110 @@ function CreateCreativeContent() {
                         </div>
                       </div>
 
-                      {/* Phase 1 Notice Bar */}
+                      {/* Truthful Engine Banner */}
                       <div className="border-t border-white/10 bg-black/40 px-4 py-2 flex items-center justify-between text-[10px] text-slate-400">
-                        <span>Deterministic Preview Composition</span>
-                        <span className="text-amber-300">Phase 2 Provider Ready</span>
+                        <span>
+                          {current.isRealGemini
+                            ? `Generated with Google Gemini (${current.modelUsed || 'gemini-nano-banana-2.1'})`
+                            : 'Deterministic Preview Composition'}
+                        </span>
+                        {current.generationTimeMs && (
+                          <span className="text-slate-400">
+                            {current.generationTimeMs}ms
+                          </span>
+                        )}
                       </div>
                     </div>
                   );
                 })()}
 
-                {/* Actions: Save to Projects, Retry */}
-                <div className="flex items-center gap-2 pt-2">
+                {/* Primary Action Buttons: Download, Save, Iterate */}
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <button
+                    onClick={() =>
+                      handleDownload(
+                        generatedVariations[activeVariationIdx].previewImageUrl,
+                        activeVariationIdx + 1
+                      )
+                    }
+                    className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white py-2 text-xs font-bold text-slate-800 hover:bg-slate-50 transition-colors shadow-subtle"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    <span>Download Image</span>
+                  </button>
+
                   <button
                     onClick={handleSaveToProjects}
                     disabled={savedProjectSuccess}
-                    className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${
+                    className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-all shadow-subtle ${
                       savedProjectSuccess
                         ? 'bg-emerald-600 text-white'
-                        : 'bg-gima-navy text-white hover:bg-gima-navy-light shadow-subtle'
+                        : 'bg-gima-navy text-white hover:bg-gima-navy-light'
                     }`}
                   >
                     {savedProjectSuccess ? (
                       <>
-                        <Check className="h-4 w-4" />
-                        <span>Saved in Projects!</span>
+                        <Check className="h-3.5 w-3.5" />
+                        <span>Saved to Projects</span>
                       </>
                     ) : (
                       <>
-                        <FolderPlus className="h-4 w-4" />
-                        <span>Save to Project Workspace</span>
+                        <FolderPlus className="h-3.5 w-3.5" />
+                        <span>Save to Projects</span>
                       </>
                     )}
                   </button>
 
                   <button
-                    onClick={handleGenerate}
-                    className="rounded-xl border border-slate-200 bg-white p-2.5 text-slate-700 hover:bg-slate-50 transition-colors"
-                    title="Regenerate variations"
+                    onClick={() =>
+                      handleUseAsReference(
+                        generatedVariations[activeVariationIdx].previewImageUrl
+                      )
+                    }
+                    className="rounded-xl border border-slate-200 bg-white p-2 text-slate-700 hover:bg-slate-50 transition-colors"
+                    title="Use as reference asset for next generation"
+                  >
+                    <PlusCircle className="h-4 w-4" />
+                  </button>
+
+                  <button
+                    onClick={() => setIsIterating(!isIterating)}
+                    className="rounded-xl border border-slate-200 bg-white p-2 text-slate-700 hover:bg-slate-50 transition-colors"
+                    title="Iterate & Regenerate with prompt"
                   >
                     <RefreshCw className="h-4 w-4" />
                   </button>
                 </div>
+
+                {/* Regeneration / Iteration Bar */}
+                {isIterating && (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2 animate-fade-in">
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                      <span>Iterate on this composition:</span>
+                      <button
+                        onClick={() => setIsIterating(false)}
+                        className="text-slate-400 hover:text-slate-700"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="e.g. Keep composition but make the headline more prominent and clinical..."
+                      value={iterationPrompt}
+                      onChange={(e) => setIterationPrompt(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-800 focus:border-gima-navy focus:outline-none"
+                    />
+                    <div className="flex justify-end">
+                      <button
+                        onClick={() => handleGenerate(iterationPrompt)}
+                        className="rounded-lg bg-gima-navy px-3 py-1 text-xs font-bold text-white hover:bg-gima-navy-light"
+                      >
+                        Regenerate Variation
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -989,6 +1176,39 @@ function CreateCreativeContent() {
         selectedAssets={selectedAssets}
         onToggleAsset={handleToggleAsset}
       />
+
+      {/* Image Lightbox Modal */}
+      {isLightboxOpen && generatedVariations[activeVariationIdx] && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+          <div className="relative max-h-[92vh] max-w-4xl w-full flex flex-col items-center justify-center">
+            <button
+              onClick={() => setIsLightboxOpen(false)}
+              className="absolute -top-10 right-0 rounded-full bg-white/20 p-1.5 text-white hover:bg-white/40 transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <img
+              src={generatedVariations[activeVariationIdx].previewImageUrl}
+              alt="High resolution view"
+              className="max-h-[85vh] w-auto rounded-xl shadow-2xl object-contain border border-white/20"
+            />
+            <div className="mt-3 flex items-center gap-3">
+              <button
+                onClick={() =>
+                  handleDownload(
+                    generatedVariations[activeVariationIdx].previewImageUrl,
+                    activeVariationIdx + 1
+                  )
+                }
+                className="rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-slate-900 shadow hover:bg-slate-100 flex items-center gap-1.5"
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span>Download High-Res</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
