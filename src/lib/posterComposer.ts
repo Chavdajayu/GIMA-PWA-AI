@@ -270,6 +270,71 @@ function drawAccreditationSeal(
 }
 
 /**
+ * Draws Open Access Clinical Seal for Free Courses (no unverified ROHP claims)
+ */
+function drawOpenAccessSeal(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  code: string,
+  micro: string,
+  subtitle: string
+) {
+  ctx.save();
+  const r = 36;
+
+  // Double circle ring in teal and gold
+  ctx.strokeStyle = '#0d9488';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.strokeStyle = '#c59b27';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r - 4, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Subtle decorative dots
+  ctx.fillStyle = '#0d9488';
+  for (let i = 0; i < 12; i++) {
+    const angle1 = Math.PI * 0.6 + (i * Math.PI * 0.8) / 11;
+    const lx1 = cx + (r - 7) * Math.cos(angle1);
+    const ly1 = cy + (r - 7) * Math.sin(angle1);
+    ctx.beginPath();
+    ctx.arc(lx1, ly1, 1.8, 0, Math.PI * 2);
+    ctx.fill();
+
+    const angle2 = Math.PI * 1.6 + (i * Math.PI * 0.8) / 11;
+    const lx2 = cx + (r - 7) * Math.cos(angle2);
+    const ly2 = cy + (r - 7) * Math.sin(angle2);
+    ctx.beginPath();
+    ctx.arc(lx2, ly2, 1.8, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Inner Code
+  ctx.fillStyle = '#0f233a';
+  ctx.font = '800 13px "Inter", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(code, cx, cy - 3);
+
+  // Micro designation label underneath
+  ctx.fillStyle = '#0d9488';
+  ctx.font = '700 7.5px "Inter", sans-serif';
+  ctx.fillText(micro, cx, cy + 11);
+
+  // Subtitle under seal
+  ctx.fillStyle = '#64748b';
+  ctx.font = '600 8.5px "Inter", sans-serif';
+  ctx.fillText(subtitle, cx, cy + r + 13);
+
+  ctx.restore();
+}
+
+/**
  * Draws single Program Highlight card with icon, title, and description
  */
 function drawHighlightCard(
@@ -278,7 +343,7 @@ function drawHighlightCard(
   y: number,
   w: number,
   h: number,
-  iconType: 'curriculum' | 'application' | 'learning' | 'designations',
+  iconSymbol: string,
   title: string,
   desc: string
 ) {
@@ -309,12 +374,6 @@ function drawHighlightCard(
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.font = 'bold 15px "Inter", sans-serif';
-
-  let iconSymbol = '✓';
-  if (iconType === 'curriculum') iconSymbol = '📖';
-  else if (iconType === 'application') iconSymbol = '🎯';
-  else if (iconType === 'learning') iconSymbol = '💻';
-  else if (iconType === 'designations') iconSymbol = '🏅';
   ctx.fillText(iconSymbol, ix, iy);
 
   // Card Title
@@ -337,9 +396,18 @@ function drawHighlightCard(
 
 /**
  * Main Poster Composition Function
+ * Single source of truth: request.course, request.campaignType, request.headline
  */
 export async function composePoster(options: PosterCompositionOptions): Promise<string> {
-  const { backgroundUrl, request, brandConfig, discountText = '20% OFF' } = options;
+  const { backgroundUrl, request, brandConfig, discountText } = options;
+
+  // Determine course identity strictly from request
+  const courseStr = request.course || '';
+  const courseLower = courseStr.toLowerCase();
+  const isTheoriesOfAging = courseLower.includes('theories') || courseLower.includes('aging') || courseLower.includes('senescence');
+  const isBrainDev = courseLower.includes('brain') || courseLower.includes('neurolog');
+  const isFreeCourse = request.campaignType === 'Free Course Promotion' || isTheoriesOfAging || isBrainDev;
+  const isRohpProgram = courseLower.includes('rohp') || courseLower.includes('qualifying') || courseLower.includes('rncp');
 
   // 1. Establish canvas dimensions based on requested aspect ratio
   let canvasW = 1200;
@@ -381,14 +449,24 @@ export async function composePoster(options: PosterCompositionOptions): Promise<
   // 3. Top Header Area (y: 28 to 125)
   drawGimaLogo(ctx, 45, 36, 1.05);
 
-  // Right Accreditation Seals
-  ctx.fillStyle = '#64748b';
-  ctx.font = '700 10px "Inter", sans-serif';
-  ctx.textAlign = 'right';
-  ctx.fillText('ACCREDITED DESIGNATIONS', canvasW - 45, 34);
+  // Right Top Header Badges / Seals
+  if (isFreeCourse) {
+    ctx.fillStyle = '#0d9488';
+    ctx.font = '700 10px "Inter", sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('GIMA OPEN CLINICAL CURRICULUM', canvasW - 45, 34);
 
-  drawAccreditationSeal(ctx, canvasW - 145, 78, 'ROHP', 'HEALTH PRACTITIONER');
-  drawAccreditationSeal(ctx, canvasW - 55, 78, 'RNCP', 'CONSULTANT PRACTITIONER');
+    drawOpenAccessSeal(ctx, canvasW - 145, 78, 'FREE', '12 GUIDES', 'OPEN ACCESS');
+    drawOpenAccessSeal(ctx, canvasW - 55, 78, 'GIMA', 'CLINICAL', 'PEER-REVIEWED');
+  } else {
+    ctx.fillStyle = '#64748b';
+    ctx.font = '700 10px "Inter", sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('ACCREDITED DESIGNATIONS', canvasW - 45, 34);
+
+    drawAccreditationSeal(ctx, canvasW - 145, 78, 'ROHP', 'HEALTH PRACTITIONER');
+    drawAccreditationSeal(ctx, canvasW - 55, 78, 'RNCP', 'CONSULTANT PRACTITIONER');
+  }
 
   // Header separator line
   ctx.strokeStyle = '#f1f5f9';
@@ -448,7 +526,7 @@ export async function composePoster(options: PosterCompositionOptions): Promise<
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
-  // Faculty Director Box over bottom of visual plate (matching Reference Poster 1 & 3)
+  // Faculty Director Box over bottom of visual plate
   const facultyW = plateW - 40;
   const facultyH = 82;
   const facultyX = plateX + 20;
@@ -470,73 +548,133 @@ export async function composePoster(options: PosterCompositionOptions): Promise<
 
   ctx.fillStyle = '#38bdf8';
   ctx.font = '600 11.5px "Inter", sans-serif';
-  ctx.fillText('DC, MS, ROHP, RNCP, DABFM, DABFH', facultyX + 18, facultyY + 36);
-
-  ctx.fillStyle = '#cbd5e1';
-  ctx.font = '500 10px "Inter", sans-serif';
-  ctx.fillText('Founder & Director of Education, GIMA', facultyX + 18, facultyY + 54);
+  if (isFreeCourse) {
+    ctx.fillText('DC, MS, ROHP — Director of Education', facultyX + 18, facultyY + 36);
+    ctx.fillStyle = '#cbd5e1';
+    ctx.font = '500 10px "Inter", sans-serif';
+    ctx.fillText('Author & Academic Director, GIMA Clinical Series', facultyX + 18, facultyY + 54);
+  } else {
+    ctx.fillText('DC, MS, ROHP, RNCP, DABFM, DABFH', facultyX + 18, facultyY + 36);
+    ctx.fillStyle = '#cbd5e1';
+    ctx.font = '500 10px "Inter", sans-serif';
+    ctx.fillText('Founder & Director of Education, GIMA', facultyX + 18, facultyY + 54);
+  }
   ctx.restore();
 
-  // Optional Gold circular discount seal on top-right of image (matching Reference Poster 2)
-  const sealCx = plateX + plateW - 65;
-  const sealCy = plateY + 65;
-  const sealR = 50;
+  // Top-right badge on visual plate
+  // CRITICAL RULE: Never draw a discount badge for free courses!
+  if (isFreeCourse) {
+    // Elegant emerald/gold Open Access badge
+    const sealCx = plateX + plateW - 65;
+    const sealCy = plateY + 65;
+    const sealR = 50;
 
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(sealCx, sealCy, sealR, 0, Math.PI * 2);
-  const sealGrad = ctx.createLinearGradient(sealCx - sealR, sealCy - sealR, sealCx + sealR, sealCy + sealR);
-  sealGrad.addColorStop(0, '#c59b27');
-  sealGrad.addColorStop(1, '#997316');
-  ctx.fillStyle = sealGrad;
-  ctx.fill();
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(sealCx, sealCy, sealR, 0, Math.PI * 2);
+    const sealGrad = ctx.createLinearGradient(sealCx - sealR, sealCy - sealR, sealCx + sealR, sealCy + sealR);
+    sealGrad.addColorStop(0, '#0d9488');
+    sealGrad.addColorStop(1, '#0f766e');
+    ctx.fillStyle = sealGrad;
+    ctx.fill();
 
-  ctx.strokeStyle = '#ffffff';
-  ctx.lineWidth = 1.5;
-  ctx.setLineDash([4, 3]);
-  ctx.beginPath();
-  ctx.arc(sealCx, sealCy, sealR - 4, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.setLineDash([]);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.arc(sealCx, sealCy, sealR - 4, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
 
-  ctx.fillStyle = '#ffffff';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.font = '700 9px "Inter", sans-serif';
-  ctx.fillText('ENROLL TODAY', sealCx, sealCy - 20);
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = '700 8.5px "Inter", sans-serif';
+    ctx.fillText('OPEN ACCESS', sealCx, sealCy - 18);
 
-  ctx.font = '600 11px "Inter", sans-serif';
-  ctx.fillText('GET', sealCx, sealCy - 6);
+    ctx.font = '800 15px "Inter", sans-serif';
+    ctx.fillText('100% FREE', sealCx, sealCy);
 
-  ctx.font = '900 19px "Inter", sans-serif';
-  ctx.fillText(discountText, sealCx, sealCy + 14);
-  ctx.restore();
+    ctx.font = '600 8.5px "Inter", sans-serif';
+    ctx.fillText('12 PDF GUIDES', sealCx, sealCy + 17);
+    ctx.restore();
+  } else if (discountText) {
+    // Only render discount seal when an explicit offer/discount is provided
+    const sealCx = plateX + plateW - 65;
+    const sealCy = plateY + 65;
+    const sealR = 50;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(sealCx, sealCy, sealR, 0, Math.PI * 2);
+    const sealGrad = ctx.createLinearGradient(sealCx - sealR, sealCy - sealR, sealCx + sealR, sealCy + sealR);
+    sealGrad.addColorStop(0, '#c59b27');
+    sealGrad.addColorStop(1, '#997316');
+    ctx.fillStyle = sealGrad;
+    ctx.fill();
+
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.arc(sealCx, sealCy, sealR - 4, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = '700 9px "Inter", sans-serif';
+    ctx.fillText('ENROLL TODAY', sealCx, sealCy - 20);
+
+    ctx.font = '600 11px "Inter", sans-serif';
+    ctx.fillText('GET', sealCx, sealCy - 6);
+
+    ctx.font = '900 19px "Inter", sans-serif';
+    ctx.fillText(discountText, sealCx, sealCy + 14);
+    ctx.restore();
+  }
 
   // 5. Left Hero Content Column (x: 45 to 615, y: 165 to 855)
   const contentW = 570;
 
-  // Teal Category / Course Kicker
+  // Teal Category / Course Kicker (strictly course-specific)
   ctx.fillStyle = '#0d9488';
-  ctx.font = '800 24px "Inter", -apple-system, sans-serif';
+  ctx.font = '800 22px "Inter", -apple-system, sans-serif';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
 
-  const courseCategory = request.course.includes('10')
-    ? `${request.course}:`
-    : 'Advanced Nutritional Medicine for Health Practitioners:';
+  let courseCategory = 'GIMA Clinical Curriculum:';
+  if (isTheoriesOfAging) {
+    courseCategory = 'GIMA Open Clinical Curriculum • Longevity Science:';
+  } else if (isBrainDev) {
+    courseCategory = 'GIMA Open Clinical Curriculum • Nutritional Neurology:';
+  } else if (isFreeCourse) {
+    courseCategory = 'GIMA Open Clinical Curriculum • Free Course Series:';
+  } else if (isRohpProgram) {
+    courseCategory = 'Advanced Nutritional Medicine for Health Practitioners:';
+  } else if (courseStr) {
+    courseCategory = courseStr.includes(':') ? courseStr.split(':')[0] + ':' : `${courseStr}:`;
+  }
   ctx.fillText(courseCategory, 45, 165);
 
   // Dominant Dark Navy Headline
   ctx.fillStyle = '#0f233a';
-  ctx.font = '800 38px "Inter", -apple-system, sans-serif';
-  const headlineText = request.headline || 'Become the Expert You Always Wanted to Be in Nutrition & Lifestyle Medicine';
+  ctx.font = '800 37px "Inter", -apple-system, sans-serif';
+  const headlineText = request.headline || (
+    isTheoriesOfAging
+      ? 'Theories of Aging: Cellular Mechanisms & Longevity Science'
+      : isBrainDev
+      ? 'Nutritional Medicine in Brain Development'
+      : `${courseStr} — Clinical Excellence`
+  );
   const headlineLines = wrapText(ctx, headlineText, contentW);
 
   headlineLines.slice(0, 4).forEach((line, i) => {
-    ctx.fillText(line, 45, 206 + i * 46);
+    ctx.fillText(line, 45, 204 + i * 46);
   });
 
-  const nextY = 206 + Math.min(headlineLines.length, 4) * 46 + 18;
+  const nextY = 204 + Math.min(headlineLines.length, 4) * 46 + 18;
 
   // Target Audience pill with icon
   ctx.save();
@@ -555,7 +693,7 @@ export async function composePoster(options: PosterCompositionOptions): Promise<
   ctx.fillText(`👥  ${audText}`, 60, audY + 20);
   ctx.restore();
 
-  // Program Qualification Card
+  // Program / Curriculum Card
   const cardY = audY + 54;
   roundRect(ctx, 45, cardY, contentW, 114, 16);
   ctx.fillStyle = '#f8fafc';
@@ -564,98 +702,231 @@ export async function composePoster(options: PosterCompositionOptions): Promise<
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
-  // Caduceus shield icon
-  ctx.fillStyle = '#0d9488';
-  ctx.font = 'bold 24px "Inter", sans-serif';
-  ctx.textBaseline = 'top';
-  ctx.fillText('🛡️', 62, cardY + 22);
+  if (isFreeCourse) {
+    // Open Access Clinical Knowledge Initiative Card
+    ctx.fillStyle = '#0d9488';
+    ctx.font = 'bold 24px "Inter", sans-serif';
+    ctx.textBaseline = 'top';
+    ctx.fillText('🧬', 62, cardY + 22);
 
-  ctx.fillStyle = '#0f233a';
-  ctx.font = '800 14px "Inter", sans-serif';
-  ctx.fillText('REGISTERED ORTHOMOLECULAR HEALTH PRACTITIONER PROGRAM', 104, cardY + 18);
+    ctx.fillStyle = '#0f233a';
+    ctx.font = '800 14px "Inter", sans-serif';
+    ctx.fillText('GIMA OPEN CLINICAL KNOWLEDGE INITIATIVE', 104, cardY + 18);
 
-  ctx.fillStyle = '#0d9488';
-  ctx.font = '700 12px "Inter", sans-serif';
-  ctx.fillText('ROHP®  |  RNCP®  QUALIFYING PROGRAM', 104, cardY + 38);
+    ctx.fillStyle = '#0d9488';
+    ctx.font = '700 12px "Inter", sans-serif';
+    ctx.fillText('12 EVIDENCE-BASED CLINICAL GUIDES & CASE MONOGRAPHS', 104, cardY + 38);
 
-  ctx.fillStyle = '#64748b';
-  ctx.font = '500 11px "Inter", sans-serif';
-  ctx.fillText('Online Nutrition Certification for Regulated Healthcare Professionals', 104, cardY + 60);
-  ctx.fillText('Earn Accredited Designations • Faculty Directed by Leading Clinical Authority', 104, cardY + 78);
+    ctx.fillStyle = '#64748b';
+    ctx.font = '500 11px "Inter", sans-serif';
+    ctx.fillText('Curated by Dr. James Meschino, DC, MS, ROHP • Free Academic Resource', 104, cardY + 60);
+    ctx.fillText('Peer-Reviewed Cellular Biology, Longevity Pathways & Clinical Protocols', 104, cardY + 78);
 
-  // Curriculum Focus Quote / Note
-  const quoteY = cardY + 130;
-  ctx.fillStyle = '#475569';
-  ctx.font = 'italic 12.5px "Inter", sans-serif';
-  ctx.fillText(`Curriculum Focus: Evidence-based nutritional protocols & cellular metabolism.`, 45, quoteY);
-  ctx.fillText(`Accreditation: Recognized by the International Organization of Nutritional Consultants.`, 45, quoteY + 20);
+    // Curriculum Focus Quote / Note
+    const quoteY = cardY + 130;
+    ctx.fillStyle = '#475569';
+    ctx.font = 'italic 12.5px "Inter", sans-serif';
+    ctx.fillText(`Curriculum Focus: Evidence-based nutritional protocols & cellular metabolism.`, 45, quoteY);
+    ctx.fillText(`Open Educational Access: Provided by GIMA to empower healthcare clinicians worldwide.`, 45, quoteY + 20);
+  } else {
+    // ROHP / RNCP Certification Program Card
+    ctx.fillStyle = '#0d9488';
+    ctx.font = 'bold 24px "Inter", sans-serif';
+    ctx.textBaseline = 'top';
+    ctx.fillText('🛡️', 62, cardY + 22);
 
-  // 6. Program Highlights 4-Card Grid (y: 890 to 1120)
+    ctx.fillStyle = '#0f233a';
+    ctx.font = '800 14px "Inter", sans-serif';
+    ctx.fillText('REGISTERED ORTHOMOLECULAR HEALTH PRACTITIONER PROGRAM', 104, cardY + 18);
+
+    ctx.fillStyle = '#0d9488';
+    ctx.font = '700 12px "Inter", sans-serif';
+    ctx.fillText('ROHP®  |  RNCP®  QUALIFYING PROGRAM', 104, cardY + 38);
+
+    ctx.fillStyle = '#64748b';
+    ctx.font = '500 11px "Inter", sans-serif';
+    ctx.fillText('Online Nutrition Certification for Regulated Healthcare Professionals', 104, cardY + 60);
+    ctx.fillText('Earn Accredited Designations • Faculty Directed by Leading Clinical Authority', 104, cardY + 78);
+
+    // Curriculum Focus Quote / Note
+    const quoteY = cardY + 130;
+    ctx.fillStyle = '#475569';
+    ctx.font = 'italic 12.5px "Inter", sans-serif';
+    ctx.fillText(`Curriculum Focus: Evidence-based nutritional protocols & cellular metabolism.`, 45, quoteY);
+    ctx.fillText(`Accreditation: Recognized by the International Organization of Nutritional Consultants.`, 45, quoteY + 20);
+  }
+
+  // 6. Program Highlights 4-Card Grid (y: 885 to 1120)
   const hGridY = 885;
   const hCardW = (canvasW - 90 - 45) / 4; // ~266px each
   const hCardH = 220;
 
-  drawHighlightCard(
-    ctx,
-    45,
-    hGridY,
-    hCardW,
-    hCardH,
-    'curriculum',
-    'EVIDENCE-INFORMED CURRICULUM',
-    'Science-based nutrition education tailored exclusively for regulated healthcare professionals.'
-  );
+  if (isTheoriesOfAging) {
+    drawHighlightCard(
+      ctx,
+      45,
+      hGridY,
+      hCardW,
+      hCardH,
+      '🧬',
+      'CELLULAR SENESCENCE',
+      'Mitochondrial biology, free radical theories & telomere shortening dynamics.'
+    );
 
-  drawHighlightCard(
-    ctx,
-    45 + hCardW + 15,
-    hGridY,
-    hCardW,
-    hCardH,
-    'application',
-    'CLINICAL APPLICATION',
-    'Practical tools and protocols to assess, support, and guide measurable patient outcomes.'
-  );
+    drawHighlightCard(
+      ctx,
+      45 + hCardW + 15,
+      hGridY,
+      hCardW,
+      hCardH,
+      '🔬',
+      'METABOLIC PATHWAYS',
+      'Nutritional modulation of mTOR, AMPK, sirtuins & cellular autophagy.'
+    );
 
-  drawHighlightCard(
-    ctx,
-    45 + (hCardW + 15) * 2,
-    hGridY,
-    hCardW,
-    hCardH,
-    'learning',
-    'FLEXIBLE ONLINE LEARNING',
-    'Study at your own pace with expert-led modules, clinical slides, and digital reference toolkits.'
-  );
+    drawHighlightCard(
+      ctx,
+      45 + (hCardW + 15) * 2,
+      hGridY,
+      hCardW,
+      hCardH,
+      '📚',
+      '12 CLINICAL MODULES',
+      'Comprehensive digital PDF guides with evidence-informed clinical interventions.'
+    );
 
-  drawHighlightCard(
-    ctx,
-    45 + (hCardW + 15) * 3,
-    hGridY,
-    hCardW,
-    hCardH,
-    'designations',
-    'PROFESSIONAL DESIGNATIONS',
-    'Earn your prestigious ROHP® or RNCP® credential and advance your clinical practice.'
-  );
+    drawHighlightCard(
+      ctx,
+      45 + (hCardW + 15) * 3,
+      hGridY,
+      hCardW,
+      hCardH,
+      '🌐',
+      'OPEN ACCESS RESOURCE',
+      '100% open educational resource for licensed healthcare professionals.'
+    );
+  } else if (isBrainDev) {
+    drawHighlightCard(
+      ctx,
+      45,
+      hGridY,
+      hCardW,
+      hCardH,
+      '🧠',
+      'NEURODEVELOPMENT',
+      'Micronutrient and essential fatty acid biochemistry in cognitive maturation.'
+    );
+
+    drawHighlightCard(
+      ctx,
+      45 + hCardW + 15,
+      hGridY,
+      hCardW,
+      hCardH,
+      '🎯',
+      'CLINICAL APPLICATION',
+      'Evidence-based dietary protocols for neurological and pediatric wellness.'
+    );
+
+    drawHighlightCard(
+      ctx,
+      45 + (hCardW + 15) * 2,
+      hGridY,
+      hCardW,
+      hCardH,
+      '💻',
+      'FLEXIBLE STUDY',
+      'Self-paced clinical monographs, biochemical charts, and digital references.'
+    );
+
+    drawHighlightCard(
+      ctx,
+      45 + (hCardW + 15) * 3,
+      hGridY,
+      hCardW,
+      hCardH,
+      '📖',
+      'OPEN CLINICAL MONOGRAPHS',
+      'Authoritative educational modules accessible without subscription barrier.'
+    );
+  } else {
+    drawHighlightCard(
+      ctx,
+      45,
+      hGridY,
+      hCardW,
+      hCardH,
+      '📖',
+      'EVIDENCE-INFORMED CURRICULUM',
+      'Science-based nutrition education tailored exclusively for regulated healthcare professionals.'
+    );
+
+    drawHighlightCard(
+      ctx,
+      45 + hCardW + 15,
+      hGridY,
+      hCardW,
+      hCardH,
+      '🎯',
+      'CLINICAL APPLICATION',
+      'Practical tools and protocols to assess, support, and guide measurable patient outcomes.'
+    );
+
+    drawHighlightCard(
+      ctx,
+      45 + (hCardW + 15) * 2,
+      hGridY,
+      hCardW,
+      hCardH,
+      '💻',
+      'FLEXIBLE ONLINE LEARNING',
+      'Study at your own pace with expert-led modules, clinical slides, and digital reference toolkits.'
+    );
+
+    drawHighlightCard(
+      ctx,
+      45 + (hCardW + 15) * 3,
+      hGridY,
+      hCardW,
+      hCardH,
+      '🏅',
+      'PROFESSIONAL DESIGNATIONS',
+      'Earn your prestigious ROHP® or RNCP® credential and advance your clinical practice.'
+    );
+  }
 
   // 7. Call To Action & Guarantee Row (y: 1145 to 1345)
   const ctaBarY = 1145;
 
-  // Left side: Credentials & Laurel Seals summary
-  drawAccreditationSeal(ctx, 110, ctaBarY + 58, 'ROHP', 'ORTHOMOLECULAR');
-  drawAccreditationSeal(ctx, 210, ctaBarY + 58, 'RNCP', 'NUTRITIONAL');
+  if (isFreeCourse) {
+    drawOpenAccessSeal(ctx, 110, ctaBarY + 58, 'FREE', '100% OPEN', 'ACADEMIC RESOURCE');
+    drawOpenAccessSeal(ctx, 210, ctaBarY + 58, 'GIMA', 'CURRICULUM', 'PEER-REVIEWED');
 
-  ctx.fillStyle = '#0f233a';
-  ctx.font = '800 15px "Inter", sans-serif';
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'top';
-  ctx.fillText('PROFESSIONAL ACCREDITATION GUARANTEE', 270, ctaBarY + 28);
+    ctx.fillStyle = '#0f233a';
+    ctx.font = '800 15px "Inter", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText('GIMA OPEN CLINICAL KNOWLEDGE INITIATIVE', 270, ctaBarY + 28);
 
-  ctx.fillStyle = '#64748b';
-  ctx.font = '500 12px "Inter", sans-serif';
-  ctx.fillText('Official certification recognized for regulated clinicians.', 270, ctaBarY + 50);
-  ctx.fillText('Enroll with confidence • Immediate access upon registration.', 270, ctaBarY + 68);
+    ctx.fillStyle = '#64748b';
+    ctx.font = '500 12px "Inter", sans-serif';
+    ctx.fillText('Authoritative nutrition monographs for regulated healthcare clinicians.', 270, ctaBarY + 50);
+    ctx.fillText('Immediate open access • 12 complete PDF clinical guides.', 270, ctaBarY + 68);
+  } else {
+    drawAccreditationSeal(ctx, 110, ctaBarY + 58, 'ROHP', 'ORTHOMOLECULAR');
+    drawAccreditationSeal(ctx, 210, ctaBarY + 58, 'RNCP', 'NUTRITIONAL');
+
+    ctx.fillStyle = '#0f233a';
+    ctx.font = '800 15px "Inter", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText('PROFESSIONAL ACCREDITATION GUARANTEE', 270, ctaBarY + 28);
+
+    ctx.fillStyle = '#64748b';
+    ctx.font = '500 12px "Inter", sans-serif';
+    ctx.fillText('Official certification recognized for regulated clinicians.', 270, ctaBarY + 50);
+    ctx.fillText('Enroll with confidence • Immediate access upon registration.', 270, ctaBarY + 68);
+  }
 
   // Right side: High-Impact Clinical Teal CTA Pill Button
   const btnW = 500;
@@ -694,13 +965,21 @@ export async function composePoster(options: PosterCompositionOptions): Promise<
   ctx.fillStyle = '#ffffff';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
-  ctx.font = '800 24px "Inter", sans-serif';
-  const ctaMain = request.cta || 'Enroll Today • Get 20% off';
+  ctx.font = '800 23px "Inter", sans-serif';
+
+  let ctaMain = request.cta;
+  if (!ctaMain) {
+    ctaMain = isFreeCourse ? 'Access Free Course • Download Guides' : 'Enroll Today • Elevate Practice';
+  }
   ctx.fillText(ctaMain, btnX + 96, btnY + 22);
 
   ctx.fillStyle = '#ccfbf1';
   ctx.font = '600 12px "Inter", sans-serif';
-  ctx.fillText('Global Integrative Medicine Academy  |  Official Fast-Track Certification', btnX + 96, btnY + 54);
+  if (isFreeCourse) {
+    ctx.fillText('Global Integrative Medicine Academy  |  Open Educational Resource', btnX + 96, btnY + 54);
+  } else {
+    ctx.fillText('Global Integrative Medicine Academy  |  Official Fast-Track Certification', btnX + 96, btnY + 54);
+  }
   ctx.restore();
 
   // 8. Official Dark Navy Footer Bar (y: 1375 to 1500)
@@ -715,7 +994,11 @@ export async function composePoster(options: PosterCompositionOptions): Promise<
   ctx.font = '800 12.5px "Inter", sans-serif';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
-  ctx.fillText('REGISTERED ORTHOMOLECULAR HEALTH PRACTITIONER PROGRAM', 45, footerY + 36);
+  if (isFreeCourse) {
+    ctx.fillText('GIMA OPEN CLINICAL KNOWLEDGE SERIES  •  THEORIES OF AGING', 45, footerY + 36);
+  } else {
+    ctx.fillText('REGISTERED ORTHOMOLECULAR HEALTH PRACTITIONER PROGRAM', 45, footerY + 36);
+  }
 
   // Contact points
   ctx.fillStyle = '#cbd5e1';
@@ -732,7 +1015,6 @@ export async function composePoster(options: PosterCompositionOptions): Promise<
 
   ctx.fillStyle = '#94a3b8';
   ctx.font = '700 10.5px "Inter", sans-serif';
-  ctx.letterSpacing = '1px';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(
@@ -744,3 +1026,4 @@ export async function composePoster(options: PosterCompositionOptions): Promise<
   // Export full-resolution crisp PNG data URL
   return canvas.toDataURL('image/png', 0.98);
 }
+

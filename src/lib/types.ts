@@ -215,6 +215,9 @@ export interface ApiProviderStatus {
   recommendedMode?: GenerationMode;
   pollinationsConfigured?: boolean;
   pollinationsBalance?: number;
+  cloudflareConfigured?: boolean;
+  cloudflareModel?: string;
+  cloudflareDailyQuota?: string;
 }
 
 export interface PollinationsModelItem {

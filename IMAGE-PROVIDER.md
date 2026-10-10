@@ -1,26 +1,32 @@
-# GIMA AI Studio — Creative Generation Architecture (Phase 3: Pollinations Real Image Generation)
+# GIMA AI Studio — Creative Generation Architecture (Phase 3.5: Cloudflare Workers AI & Hybrid Poster Engine)
 
 ## 1. Multi-Provider Architecture
 
 The Create Creative studio operates on a modular, multi-provider model:
 
-1. **Pollinations AI (Phase 3 Primary Real-Image Provider)**:
+1. **Cloudflare Workers AI (Zero Out-of-Pocket Hosted Image Generation)**:
+   - Direct, server-side inference on Cloudflare Workers AI REST API:
+     `https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/run/{MODEL_ID}`
+   - **Candidate Models**:
+     - `@cf/black-forest-labs/flux-2-klein-9b` (Primary recommended high-quality clinical candidate)
+     - `@cf/black-forest-labs/flux-2-klein-4b` (Fast 4-step alternative)
+     - `@cf/black-forest-labs/flux-1-schnell` (Commercially relevant open-weight alternative)
+   - **Daily Free Allowance**: 10,000 Neurons per day included on Cloudflare Free Workers plan (~7 images/day for Klein 9B).
+   - Authenticated with server-side secrets (`CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`) in `.env.local` or Vercel Environment Variables.
+   - Server-side multipart `FormData` invocation returning binary image buffers.
+   - Coupled with the **Deterministic Hybrid Poster Composition Engine** to guarantee perfect typography, official logos, and course-specific curriculum points.
+
+2. **Pollinations AI (Phase 3 Real-Image Provider)**:
    - Direct, server-side real AI image generation via `https://gen.pollinations.ai`.
-   - Authenticated with server-side secret key (`POLLINATIONS_API_KEY=your-server-secret`) stored exclusively in `.env.local` or Vercel Environment Variables.
+   - Authenticated with server-side secret key (`POLLINATIONS_API_KEY`) stored exclusively in `.env.local` or Vercel Environment Variables.
    - Dynamic model discovery from the live catalog (16 models currently available, including `openai/gpt-image-2`, `tongyi-mai/z-image-turbo`, `microsoft/mai-image-2.6-flash`, `black-forest-labs/flux.1-schnell`).
-   - Pollen balance verification (`/account/balance` -> ~0.206 Pollen available).
-   - Accurately labeled: *"Pollinations account-funded generation"*.
+   - Pollen balance verification (`/account/balance`).
    - In-app refinement with prompt chips and one-click re-generation.
 
-2. **Gemini Pro Web Handoff (Phase 2B ₹0 Workflow)**:
+3. **Gemini Pro Web Handoff (Phase 2B ₹0 Workflow)**:
    - Uses the user's signed-in **Jio Google AI Pro** account at `gemini.google.com/app`.
    - GIMA AI Studio handles all clinical knowledge retrieval (RAG from 12 Free-Course PDFs + website crawl), asset resolution, compliance guardrails, and structured prompt engineering.
-   - The user opens Gemini, pastes the prompt, attaches downloaded reference assets, and imports the resulting image back into the PWA via **Drag & Drop**, **File Picker**, or **Ctrl+V Clipboard Paste**.
    - **Zero API Billing / ₹0 Cost**.
-
-3. **Google Gemini API**:
-   - Server-side integration via `@google/genai` calling `gemini-nano-banana-2.1` or `gemini-3-pro-image`.
-   - **Tested & Verified Finding**: Google Free-Tier projects assign `limit: 0` for image generation requests (`RESOURCE_EXHAUSTED` / 429). The engine cleanly detects this and recommends Pollinations AI or Gemini Pro Web Handoff.
 
 4. **Deterministic Demo Preview**:
    - Generates high-fidelity preview compositions using authentic GIMA logos, Dr. Meschino portraits, and clinical curriculum citations.

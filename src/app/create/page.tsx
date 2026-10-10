@@ -237,11 +237,13 @@ function CreateCreativeContent() {
   const [refinementInput, setRefinementInput] = useState<string>('');
   const [refiningSlotIndex, setRefiningSlotIndex] = useState<number | null>(null);
   const [showRawBg, setShowRawBg] = useState<Record<number, boolean>>({});
+  const [serverProviderStatus, setServerProviderStatus] = useState<ApiProviderStatus | null>(null);
 
   // 1. Initial Load: Load live model catalog & check balance
   useEffect(() => {
     loadModelCatalog();
     refreshPollenBalance();
+    checkServerProviderStatus().then((st) => setServerProviderStatus(st)).catch(() => {});
   }, []);
 
   const loadModelCatalog = async () => {
@@ -338,23 +340,27 @@ function CreateCreativeContent() {
     if (selectedTitle.includes('Theories of Aging')) {
       setTopic('Cellular Senescence, Free Radicals & Glycation');
       setHeadline('Theories of Aging: Cellular Mechanisms & Longevity Science');
-      setCta('Enroll Free Today');
+      setCta('Access Free Course');
       setCampaignType('Free Course Promotion');
+      setAudience('Integrative Practitioners, Nutritionists, Healthcare Students');
     } else if (selectedTitle.includes('Brain Development')) {
       setTopic('Neurodevelopment, Pediatric Nutrition & Cognitive Pathways');
       setHeadline('Nutritional Medicine in Brain Development');
-      setCta('Explore Free Course');
+      setCta('Access Free Course');
       setCampaignType('Free Course Promotion');
+      setAudience('Integrative Practitioners, Neurologists, Healthcare Students');
     } else if (selectedTitle.includes('ROHP')) {
       setTopic('Registered Orthomolecular Health Practitioner Designation');
       setHeadline('Accredited ROHP™ Clinical Certification');
       setCta('Apply for Accreditation');
       setCampaignType('Course Promotion');
+      setAudience('Licensed Healthcare Professionals, DCs, NDs, MDs');
     } else {
       setTopic('Integrative Clinical Practice & Functional Protocols');
       setHeadline(`${selectedTitle} — Clinical Curriculum`);
       setCta('Enroll Today');
       setCampaignType('Course Promotion');
+      setAudience('Regulated Healthcare Professionals');
     }
   };
 
@@ -547,7 +553,7 @@ function CreateCreativeContent() {
           resultVar.rawBackgroundUrl = resultVar.previewImageUrl;
           resultVar.previewImageUrl = composedPosterDataUrl;
           resultVar.isHybridPoster = true;
-          resultVar.notes = 'GIMA Hybrid Poster Engine • SDXL Lightning Background + Deterministic Brand Composition';
+          resultVar.notes = `GIMA Hybrid Poster Engine • ${resultVar.modelUsed || 'Free Diffusion'} Visual Artwork + Studio Poster Composition`;
         } catch (composeErr) {
           console.warn('[Hybrid Poster Engine] Retry composition fallback:', composeErr);
         }
@@ -622,7 +628,7 @@ function CreateCreativeContent() {
           resultVar.rawBackgroundUrl = resultVar.previewImageUrl;
           resultVar.previewImageUrl = composedPosterDataUrl;
           resultVar.isHybridPoster = true;
-          resultVar.notes = 'GIMA Hybrid Poster Engine • SDXL Lightning Background + Deterministic Brand Composition';
+          resultVar.notes = `GIMA Hybrid Poster Engine • ${resultVar.modelUsed || 'Free Diffusion'} Visual Artwork + Studio Poster Composition`;
         } catch (composeErr) {
           console.warn('[Hybrid Poster Engine] Refine composition fallback:', composeErr);
         }
@@ -730,7 +736,7 @@ function CreateCreativeContent() {
               resultVar.rawBackgroundUrl = resultVar.previewImageUrl;
               resultVar.previewImageUrl = composedPosterDataUrl;
               resultVar.isHybridPoster = true;
-              resultVar.notes = 'GIMA Hybrid Poster Engine • SDXL Lightning Background + Deterministic Brand Composition';
+              resultVar.notes = `GIMA Hybrid Poster Engine • ${resultVar.modelUsed || 'Free Diffusion'} Visual Artwork + Studio Poster Composition`;
             } catch (composeErr) {
               console.warn('[Hybrid Poster Engine] Progressive composition fallback:', composeErr);
             }
@@ -1295,7 +1301,7 @@ function CreateCreativeContent() {
                 >
                   <span>Free Models</span>
                   <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded font-mono font-bold">
-                    0 Pollen
+                    {serverProviderStatus?.cloudflareConfigured ? 'FLUX.2 Klein' : 'Zero Cost'}
                   </span>
                 </button>
 
@@ -1465,55 +1471,79 @@ function CreateCreativeContent() {
                     <span>Hybrid Free Poster Engine</span>
                   </span>
                   <span className="text-[10px] font-bold bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full">
-                    0 Pollen Cost • Verified Free
+                    {serverProviderStatus?.cloudflareConfigured
+                      ? 'Free Daily Cloudflare Allowance'
+                      : 'Verified Zero Cost'}
                   </span>
                 </div>
 
-                {verifiedFreeModels.length > 0 ? (
-                  <div className="space-y-2">
-                    <p className="text-slate-600 text-xs leading-relaxed">
-                      Generates authentic healthcare visual artwork via the verified zero-cost model, then composes publication-grade GIMA marketing posters with vector branding, official logo, ROHP/RNCP credentials, clean typography, structured highlight cards, and high-impact CTA.
-                    </p>
-                    {verifiedFreeModels.map((fm) => (
-                      <div key={fm.id} className="p-2.5 rounded-lg bg-white border border-emerald-200 flex items-center justify-between">
+                {serverProviderStatus?.cloudflareConfigured ? (
+                  <div className="space-y-2.5">
+                    <div className="p-3 rounded-lg bg-white border border-emerald-300 shadow-xs space-y-1.5">
+                      <div className="flex items-center justify-between">
                         <div>
-                          <div className="font-bold text-slate-900">{fm.name}</div>
+                          <span className="font-bold text-slate-900 text-sm">
+                            FLUX.2 Klein 9B
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-mono ml-2">
+                            {serverProviderStatus?.cloudflareModel || '@cf/black-forest-labs/flux-2-klein-9b'}
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                          Active Provider
+                        </span>
+                      </div>
+                      <p className="text-slate-600 text-xs leading-relaxed">
+                        Photorealistic healthcare visual plate generated on Cloudflare Workers AI using the FLUX.2 Klein 9B model. Finished by GIMA Studio Poster Engine with authoritative typography, verified official branding, and course-specific curriculum points.
+                      </p>
+                      <div className="flex items-center justify-between text-[11px] text-slate-600 pt-1.5 border-t border-slate-100">
+                        <span>Free Allowance: <strong>10,000 Neurons/day (~7 images/day)</strong></span>
+                        <span className="text-emerald-700 font-semibold">Resets daily at 00:00 UTC</span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 italic">
+                        Check Cloudflare dashboard for live remaining quota. No payment method required within daily allowance.
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    <p className="text-slate-600 text-xs leading-relaxed">
+                      Generates authentic healthcare visual artwork via the verified zero-cost free model, then composes publication-grade GIMA marketing posters with vector branding, official logo, clean typography, structured highlight cards, and high-impact CTA.
+                    </p>
+                    {verifiedFreeModels.length > 0 ? (
+                      verifiedFreeModels.map((fm) => (
+                        <div key={fm.id} className="p-2.5 rounded-lg bg-white border border-emerald-200 flex items-center justify-between">
+                          <div>
+                            <div className="font-bold text-slate-900">{fm.name}</div>
+                            <div className="text-[10px] text-slate-500">
+                              {fm.publisher} • Visual Plate Generator (0 Pollen) + Studio Poster Composer
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded border border-emerald-200">
+                            Active Free Model
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-2.5 rounded-lg bg-white border border-emerald-200 flex items-center justify-between">
+                        <div>
+                          <div className="font-bold text-slate-900">SDXL Lightning Free</div>
                           <div className="text-[10px] text-slate-500">
-                            {fm.publisher} • Visual Plate Generator (0 Pollen) + Studio Poster Composer
+                            Community Zero-Cost Diffusion + Studio Poster Composer
                           </div>
                         </div>
                         <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded border border-emerald-200">
                           Active Free Model
                         </span>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="bg-white rounded-xl p-3 border border-emerald-100 space-y-2">
-                    <p className="text-slate-700 font-semibold">
-                      No verified zero-cost image models are currently available in the live catalog. Free-provider evaluation is pending.
-                    </p>
-                    <p className="text-slate-500 text-[11px] leading-relaxed">
-                      External free providers (e.g. HuggingFace, local Stable Diffusion) will be evaluated in the next phase. For minimal cost right now, use Pollinations AI with budget-friendly models like <strong>Z-Image Turbo (~0.004 Pollen)</strong> or switch to Demo Preview.
-                    </p>
-                    <div className="flex items-center gap-2 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setGenerationMode('pollinations');
-                          setSelectedModelId('tongyi-mai/z-image-turbo');
-                        }}
-                        className="px-2.5 py-1 rounded-lg bg-gima-navy text-white text-[11px] font-bold"
-                      >
-                        Use Z-Image Turbo (~0.004 Pollen)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setGenerationMode('demo-preview')}
-                        className="px-2.5 py-1 rounded-lg border border-slate-300 text-slate-700 text-[11px] font-bold"
-                      >
-                        Use Demo Preview
-                      </button>
+                    )}
+                    <div className="p-2.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-900 space-y-1">
+                      <div className="font-bold text-[11px] flex items-center gap-1">
+                        <span>💡 Enable FLUX.2 Klein 9B via Cloudflare Workers AI</span>
+                      </div>
+                      <p className="text-[11px] text-blue-800 leading-relaxed">
+                        Cloudflare Workers AI includes <strong>10,000 Neurons/day free</strong> (~7 images/day) at zero out-of-pocket cost. To activate FLUX.2 Klein 9B, add <code>CLOUDFLARE_ACCOUNT_ID</code> and <code>CLOUDFLARE_API_TOKEN</code> in your server <code>.env.local</code>.
+                      </p>
                     </div>
                   </div>
                 )}

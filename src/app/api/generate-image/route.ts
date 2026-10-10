@@ -130,6 +130,10 @@ function mapAspectRatioToPixelSize(aspectRatio: string): { width: number; height
 export async function GET(): Promise<NextResponse<ApiProviderStatus>> {
   const hasPollinations = Boolean(process.env.POLLINATIONS_API_KEY && process.env.POLLINATIONS_API_KEY.trim().length > 0);
   const hasGemini = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim().length > 0);
+  const cloudflareAccountId = process.env.CLOUDFLARE_ACCOUNT_ID?.trim();
+  const cloudflareApiToken = process.env.CLOUDFLARE_API_TOKEN?.trim();
+  const hasCloudflare = Boolean(cloudflareAccountId && cloudflareApiToken);
+  const cloudflareModel = process.env.CLOUDFLARE_IMAGE_MODEL?.trim() || '@cf/black-forest-labs/flux-2-klein-9b';
 
   let pollinationsBalance: number | undefined;
   if (hasPollinations) {
@@ -147,21 +151,31 @@ export async function GET(): Promise<NextResponse<ApiProviderStatus>> {
 
   const defaultPollinationsModel = process.env.POLLINATIONS_IMAGE_MODEL || 'tongyi-mai/z-image-turbo';
 
+  let statusMessage = '';
+  if (hasCloudflare) {
+    statusMessage = `Cloudflare Workers AI is active (${cloudflareModel}) • Free daily allowance (10,000 Neurons/day ~7 free images/day with FLUX.2 Klein 9B).`;
+  } else if (hasPollinations) {
+    statusMessage = `Pollinations AI is active (${defaultPollinationsModel}${typeof pollinationsBalance === 'number' ? `, Balance: ${pollinationsBalance} Pollen` : ''}). Real image generation ready.`;
+  } else if (hasGemini) {
+    statusMessage = 'Gemini API key is configured. Google Free Tier limits image model requests to 0. Gemini Pro Web Handoff is active.';
+  } else {
+    statusMessage = 'No API key configured on server. Operating in Demo Preview mode.';
+  }
+
   return NextResponse.json({
-    configured: hasPollinations || hasGemini,
-    provider: hasPollinations ? 'Pollinations AI' : 'Google Gemini',
-    model: hasPollinations ? defaultPollinationsModel : (process.env.GEMINI_IMAGE_MODEL || 'gemini-nano-banana-2.1'),
+    configured: hasCloudflare || hasPollinations || hasGemini,
+    provider: hasCloudflare ? 'Cloudflare Workers AI' : (hasPollinations ? 'Pollinations AI' : 'Google Gemini'),
+    model: hasCloudflare ? cloudflareModel : (hasPollinations ? defaultPollinationsModel : (process.env.GEMINI_IMAGE_MODEL || 'gemini-nano-banana-2.1')),
     size: '1024x1024',
-    mode: hasPollinations ? 'real' : (hasGemini ? 'real' : 'demo'),
-    imageQuotaAvailable: hasPollinations,
-    recommendedMode: hasPollinations ? 'pollinations' : 'gemini-web-handoff',
+    mode: (hasCloudflare || hasPollinations || hasGemini) ? 'real' : 'demo',
+    imageQuotaAvailable: hasCloudflare || hasPollinations,
+    recommendedMode: hasCloudflare ? 'free-models' : (hasPollinations ? 'pollinations' : 'gemini-web-handoff'),
     pollinationsConfigured: hasPollinations,
     pollinationsBalance,
-    message: hasPollinations
-      ? `Pollinations AI is active (${defaultPollinationsModel}${typeof pollinationsBalance === 'number' ? `, Balance: ${pollinationsBalance} Pollen` : ''}). Real image generation ready.`
-      : hasGemini
-      ? 'Gemini API key is configured. Google Free Tier limits image model requests to 0. Gemini Pro Web Handoff is active.'
-      : 'No API key configured on server. Operating in Demo Preview mode.'
+    cloudflareConfigured: hasCloudflare,
+    cloudflareModel,
+    cloudflareDailyQuota: '10,000 Neurons/day included on Free plan (~7 images/day with FLUX.2 Klein 9B)',
+    message: statusMessage,
   });
 }
 
@@ -210,8 +224,159 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiGeneration
     const mappedRatio = promptComposition.mappedAspectRatio;
 
     // Determine target provider:
-    // Default to Pollinations if configured and not explicitly requested otherwise
+    const cloudflareAccountId = process.env.CLOUDFLARE_ACCOUNT_ID?.trim();
+    const cloudflareApiToken = process.env.CLOUDFLARE_API_TOKEN?.trim();
+    const hasCloudflare = Boolean(cloudflareAccountId && cloudflareApiToken);
     const pollinationsKey = process.env.POLLINATIONS_API_KEY?.trim();
+
+    // ========================================================
+    // PATH 0: CLOUDFLARE WORKERS AI (FLUX.2 KLEIN 9B / 4B / FLUX.1 SCHNELL)
+    // Zero out-of-pocket cost via included 10,000 Neurons/day free allowance
+    // ========================================================
+    if (body.provider === 'cloudflare' || (body.provider === 'free-models' && hasCloudflare)) {
+      if (!hasCloudflare) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: 'MISSING_CLOUDFLARE_CREDENTIALS',
+              message: 'Cloudflare Workers AI credentials missing. Set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN in .env.local to enable FLUX.2 Klein 9B (~7 free images/day on Free Plan).',
+              retryable: false,
+            },
+          },
+          { status: 400 }
+        );
+      }
+
+      const defaultCfModel = process.env.CLOUDFLARE_IMAGE_MODEL?.trim() || '@cf/black-forest-labs/flux-2-klein-9b';
+      const selectedCfModel = (body.model?.startsWith('@cf/') ? body.model : defaultCfModel).trim();
+      const pixelSize = mapAspectRatioToPixelSize(body.aspectRatio);
+
+      const isSpecificVariation = typeof body.variationIndex === 'number';
+      const targetIndices: number[] = isSpecificVariation
+        ? [body.variationIndex as number]
+        : Array.from({ length: Math.max(1, Math.min(4, body.variationsCount || 1)) }, (_, i) => i);
+
+      console.log(`[Cloudflare Workers AI] Generating ${targetIndices.length} variation(s) using model: ${selectedCfModel}`);
+
+      const generateSingleCf = async (idx: number) => {
+        const { prompt: cleanPrompt, summary: promptSummary } = composeFreeBackgroundPrompt(
+          body,
+          brandConfig,
+          retrievedKnowledge,
+          idx
+        );
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 90000);
+
+        try {
+          const formData = new FormData();
+          formData.append('prompt', cleanPrompt);
+          formData.append('width', pixelSize.width.toString());
+          formData.append('height', pixelSize.height.toString());
+
+          const cfRes = await fetch(
+            `https://api.cloudflare.com/client/v4/accounts/${cloudflareAccountId}/ai/run/${selectedCfModel}`,
+            {
+              method: 'POST',
+              signal: controller.signal,
+              headers: {
+                Authorization: `Bearer ${cloudflareApiToken}`,
+                'User-Agent': 'GIMA-AI-Studio/1.0',
+              },
+              body: formData,
+            }
+          );
+          clearTimeout(timeout);
+
+          if (!cfRes.ok) {
+            const errText = await cfRes.text();
+            let parsedErr: any = null;
+            try { parsedErr = JSON.parse(errText); } catch {}
+            const msg = parsedErr?.errors?.[0]?.message || parsedErr?.error || errText || `Cloudflare error (HTTP ${cfRes.status})`;
+
+            if (cfRes.status === 401 || cfRes.status === 403) {
+              throw new Error(`INVALID_API_KEY: Cloudflare API token or Account ID was rejected. Check CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID in .env.local.`);
+            } else if (cfRes.status === 429) {
+              throw new Error(`RATE_LIMITED: Cloudflare daily free allowance reached (10,000 Neurons/day). Quota resets at 00:00 UTC.`);
+            } else {
+              throw new Error(`CLOUDFLARE_ERROR (${cfRes.status}): ${msg}`);
+            }
+          }
+
+          const contentType = cfRes.headers.get('content-type') || '';
+          let imageDataUrl = '';
+
+          if (contentType.includes('application/json')) {
+            const json = await cfRes.json();
+            const b64 = json.result?.image || json.result;
+            if (!b64) throw new Error('Cloudflare JSON response contained no image data');
+            imageDataUrl = b64.startsWith('data:') ? b64 : `data:image/png;base64,${b64}`;
+          } else {
+            const buffer = await cfRes.arrayBuffer();
+            const base64 = Buffer.from(buffer).toString('base64');
+            const mime = contentType.split(';')[0] || 'image/png';
+            imageDataUrl = `data:${mime};base64,${base64}`;
+          }
+
+          return {
+            id: `var-cf-${Date.now()}-${idx + 1}`,
+            imageUrl: imageDataUrl,
+            imageDataUrl,
+            mimeType: 'image/png',
+            width: pixelSize.width,
+            height: pixelSize.height,
+            promptSummary,
+          };
+        } finally {
+          clearTimeout(timeout);
+        }
+      };
+
+      const settleResults = await Promise.allSettled(targetIndices.map((idx) => generateSingleCf(idx)));
+      const generatedVariations: any[] = [];
+      let firstError: Error | null = null;
+
+      for (const res of settleResults) {
+        if (res.status === 'fulfilled') {
+          generatedVariations.push(res.value);
+        } else if (!firstError) {
+          firstError = res.reason;
+        }
+      }
+
+      if (generatedVariations.length === 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: 'GENERATION_FAILED',
+              message: firstError?.message || 'Cloudflare Workers AI did not return image data.',
+              retryable: true,
+            },
+          },
+          { status: 502 }
+        );
+      }
+
+      const duration = Date.now() - startTime;
+      return NextResponse.json({
+        success: true,
+        provider: {
+          id: 'cloudflare',
+          model: selectedCfModel,
+        },
+        variations: generatedVariations,
+        metadata: {
+          course: body.course,
+          creativeType: body.creativeType,
+          aspectRatio: body.aspectRatio,
+          generationTimeMs: duration,
+        },
+      });
+    }
+
     const usePollinations = (body.provider === 'pollinations' || body.provider === 'free-models' || (!body.provider && Boolean(pollinationsKey))) && Boolean(pollinationsKey);
 
     // ========================================================
@@ -507,7 +672,11 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiGeneration
 
     if (displayMessage.includes('INVALID_API_KEY') || displayMessage.includes('API key') || displayMessage.includes('unauthenticated')) {
       errorCode = 'INVALID_API_KEY';
-      displayMessage = 'API key is invalid or not authorized. Check your configuration in .env.local.';
+      if (displayMessage.includes('Cloudflare')) {
+        displayMessage = 'Cloudflare API token or Account ID was rejected. Check CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID in .env.local.';
+      } else {
+        displayMessage = 'API key is invalid or not authorized. Check your configuration in .env.local.';
+      }
       retryable = false;
     } else if (displayMessage.includes('INSUFFICIENT_BALANCE') || displayMessage.includes('402')) {
       errorCode = 'INSUFFICIENT_BALANCE';
@@ -515,7 +684,9 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiGeneration
       retryable = false;
     } else if (displayMessage.includes('429') || displayMessage.includes('quota') || displayMessage.includes('rate limit') || displayMessage.includes('RESOURCE_EXHAUSTED')) {
       errorCode = 'RATE_LIMITED';
-      if (displayMessage.includes('limit: 0')) {
+      if (displayMessage.includes('Cloudflare')) {
+        displayMessage = 'Cloudflare daily free allowance reached (10,000 Neurons/day). Quota resets at 00:00 UTC.';
+      } else if (displayMessage.includes('limit: 0')) {
         displayMessage = 'Google Gemini image generation model has quota limit: 0 on Free-Tier projects. Switch to Pollinations AI or Gemini Pro Web Handoff.';
       } else {
         displayMessage = 'Rate limit exceeded. Please retry in a moment or switch to Gemini Pro Web Handoff.';

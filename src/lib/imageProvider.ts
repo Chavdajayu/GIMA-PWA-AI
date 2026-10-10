@@ -170,6 +170,110 @@ export class PollinationsImageProvider implements ImageGenerationProvider {
 }
 
 /**
+ * Cloudflare Workers AI Image Provider (Zero out-of-pocket FLUX.2 Klein 9B / 4B / FLUX.1 Schnell)
+ * Calls server-side /api/generate-image with provider="cloudflare" or "free-models"
+ */
+export class CloudflareWorkersAIImageProvider implements ImageGenerationProvider {
+  id = 'cloudflare';
+  name = 'Cloudflare Workers AI (FLUX.2 Klein)';
+  version = '2.0';
+  isConnected = true;
+  selectedModel?: string;
+
+  constructor(model: string = '@cf/black-forest-labs/flux-2-klein-9b') {
+    this.selectedModel = model;
+  }
+
+  async generateSingleVariation(
+    request: GenerationRequest,
+    variationIndex: number = 0,
+    onProgress?: GenerationProgressCallback
+  ): Promise<GeneratedVariation> {
+    const modelToUse = this.selectedModel || '@cf/black-forest-labs/flux-2-klein-9b';
+    onProgress?.('generating', `Generating variation ${variationIndex + 1} with ${modelToUse.split('/').pop()} on Cloudflare Workers AI...`, 50);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 90000);
+
+    let response: Response;
+    try {
+      response = await fetch('/api/generate-image', {
+        method: 'POST',
+        signal: controller.signal,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...request,
+          provider: 'cloudflare',
+          model: modelToUse,
+          variationIndex,
+          variationsCount: 1,
+        }),
+      });
+    } catch (fetchErr: any) {
+      clearTimeout(timeout);
+      if (fetchErr.name === 'AbortError') {
+        const err = new Error(`Cloudflare variation ${variationIndex + 1} timed out after 90 seconds. Please retry.`);
+        (err as any).code = 'TIMEOUT';
+        (err as any).retryable = true;
+        throw err;
+      }
+      throw fetchErr;
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    let data: ApiGenerationResponse | null = null;
+    try {
+      data = await response.json();
+    } catch {}
+
+    if (!response.ok || !data?.success || !data?.variations?.[0]) {
+      const errMsg = data?.error?.message || `Cloudflare generation failed (HTTP ${response.status}).`;
+      const err = new Error(errMsg);
+      (err as any).code = data?.error?.code || 'CLOUDFLARE_ERROR';
+      (err as any).retryable = data?.error?.retryable ?? true;
+      throw err;
+    }
+
+    const v = data.variations[0];
+    const previewUrl = v.imageUrl || v.imageDataUrl;
+    const duration = data.metadata?.generationTimeMs || 0;
+
+    return {
+      id: v.id || `var-cf-${Date.now()}-${variationIndex + 1}`,
+      variationNumber: variationIndex + 1,
+      previewImageUrl: previewUrl,
+      compositionHeadline: request.headline || `${request.course} — Excellence in Clinical Education`,
+      compositionSubhead: request.extraPrompt
+        ? `${request.course} — "${request.extraPrompt.slice(0, 60)}..."`
+        : `Designed exclusively for Healthcare Professionals | ${request.course}`,
+      ctaText: request.cta || 'Enroll Free Today',
+      aspectRatio: request.aspectRatio,
+      style: request.style,
+      isDeterministicDemo: false,
+      isRealGemini: false,
+      source: 'free-models',
+      modelUsed: data.provider?.model || modelToUse,
+      generationTimeMs: duration,
+      promptSummary: v.promptSummary,
+      notes: `Generated with Cloudflare Workers AI (${modelToUse}) | Time: ${duration}ms`,
+    };
+  }
+
+  async generate(
+    request: GenerationRequest,
+    onProgress?: GenerationProgressCallback
+  ): Promise<GeneratedVariation[]> {
+    const targetCount = Math.max(1, Math.min(4, request.variationsCount || 1));
+    const promises = Array.from({ length: targetCount }, (_, i) =>
+      this.generateSingleVariation(request, i, onProgress)
+    );
+    return Promise.all(promises);
+  }
+}
+
+
+/**
  * Real Google Gemini Image Generation Provider (Phase 2 Integration)
  * Calls server-side /api/generate-image using @google/genai SDK
  */
