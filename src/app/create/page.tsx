@@ -80,6 +80,7 @@ import {
 import { saveProject } from '@/lib/projects';
 import { logActivity } from '@/lib/activity';
 import { AssetPickerModal } from '@/components/AssetPickerModal';
+import { composePoster } from '@/lib/posterComposer';
 
 const campaignOptions: { label: CampaignType; desc: string }[] = [
   { label: 'Free Course Promotion', desc: 'Promote 12 clinical PDFs & open access courses' },
@@ -235,6 +236,7 @@ function CreateCreativeContent() {
   const [savedProjectSuccess, setSavedProjectSuccess] = useState(false);
   const [refinementInput, setRefinementInput] = useState<string>('');
   const [refiningSlotIndex, setRefiningSlotIndex] = useState<number | null>(null);
+  const [showRawBg, setShowRawBg] = useState<Record<number, boolean>>({});
 
   // 1. Initial Load: Load live model catalog & check balance
   useEffect(() => {
@@ -524,9 +526,32 @@ function CreateCreativeContent() {
     );
 
     try {
-      const provider = new PollinationsImageProvider(selectedModelId);
+      const targetModelId = generationMode === 'free-models' && verifiedFreeModels[0]
+        ? verifiedFreeModels[0].id
+        : selectedModelId;
+      const provider = new PollinationsImageProvider(
+        targetModelId,
+        generationMode === 'free-models' ? 'free-models' : 'pollinations'
+      );
       const req = buildCurrentRequest();
       const resultVar = await provider.generateSingleVariation(req, slotIndex);
+
+      if (generationMode === 'free-models' && resultVar.previewImageUrl) {
+        try {
+          const brandConfig = getBrandConfig();
+          const composedPosterDataUrl = await composePoster({
+            backgroundUrl: resultVar.previewImageUrl,
+            request: req,
+            brandConfig,
+          });
+          resultVar.rawBackgroundUrl = resultVar.previewImageUrl;
+          resultVar.previewImageUrl = composedPosterDataUrl;
+          resultVar.isHybridPoster = true;
+          resultVar.notes = 'GIMA Hybrid Poster Engine • SDXL Lightning Background + Deterministic Brand Composition';
+        } catch (composeErr) {
+          console.warn('[Hybrid Poster Engine] Retry composition fallback:', composeErr);
+        }
+      }
 
       setSlots((prev) =>
         prev.map((s) =>
@@ -575,10 +600,33 @@ function CreateCreativeContent() {
     );
 
     try {
-      const provider = new PollinationsImageProvider(selectedModelId);
+      const targetModelId = generationMode === 'free-models' && verifiedFreeModels[0]
+        ? verifiedFreeModels[0].id
+        : selectedModelId;
+      const provider = new PollinationsImageProvider(
+        targetModelId,
+        generationMode === 'free-models' ? 'free-models' : 'pollinations'
+      );
       const req = buildCurrentRequest();
       req.extraPrompt = `${req.extraPrompt} [Refinement: ${refinementInput.trim()}]`;
       const resultVar = await provider.generateSingleVariation(req, slotIndex);
+
+      if (generationMode === 'free-models' && resultVar.previewImageUrl) {
+        try {
+          const brandConfig = getBrandConfig();
+          const composedPosterDataUrl = await composePoster({
+            backgroundUrl: resultVar.previewImageUrl,
+            request: req,
+            brandConfig,
+          });
+          resultVar.rawBackgroundUrl = resultVar.previewImageUrl;
+          resultVar.previewImageUrl = composedPosterDataUrl;
+          resultVar.isHybridPoster = true;
+          resultVar.notes = 'GIMA Hybrid Poster Engine • SDXL Lightning Background + Deterministic Brand Composition';
+        } catch (composeErr) {
+          console.warn('[Hybrid Poster Engine] Refine composition fallback:', composeErr);
+        }
+      }
 
       setSlots((prev) =>
         prev.map((s) =>
@@ -658,7 +706,10 @@ function CreateCreativeContent() {
         ? verifiedFreeModels[0].id
         : selectedModelId;
 
-      const provider = new PollinationsImageProvider(targetModelId);
+      const provider = new PollinationsImageProvider(
+        targetModelId,
+        generationMode === 'free-models' ? 'free-models' : 'pollinations'
+      );
       let firstCompleted = false;
 
       // 2. Fire independent concurrent requests for progressive replacement
@@ -666,6 +717,24 @@ function CreateCreativeContent() {
         try {
           const resultVar = await provider.generateSingleVariation(req, slot.index);
           const finishedAt = Date.now();
+
+          // HYBRID POSTER COMPOSITION FOR FREE MODELS MODE
+          if (generationMode === 'free-models' && resultVar.previewImageUrl) {
+            try {
+              const brandConfig = getBrandConfig();
+              const composedPosterDataUrl = await composePoster({
+                backgroundUrl: resultVar.previewImageUrl,
+                request: req,
+                brandConfig,
+              });
+              resultVar.rawBackgroundUrl = resultVar.previewImageUrl;
+              resultVar.previewImageUrl = composedPosterDataUrl;
+              resultVar.isHybridPoster = true;
+              resultVar.notes = 'GIMA Hybrid Poster Engine • SDXL Lightning Background + Deterministic Brand Composition';
+            } catch (composeErr) {
+              console.warn('[Hybrid Poster Engine] Progressive composition fallback:', composeErr);
+            }
+          }
 
           if (!firstCompleted) {
             firstCompleted = true;
@@ -1393,23 +1462,25 @@ function CreateCreativeContent() {
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-emerald-950 flex items-center gap-1.5">
                     <ShieldCheck className="h-4 w-4 text-emerald-700" />
-                    <span>Verified Zero-Cost Image Models</span>
+                    <span>Hybrid Free Poster Engine</span>
                   </span>
                   <span className="text-[10px] font-bold bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full">
-                    0 Pollen Cost
+                    0 Pollen Cost • Verified Free
                   </span>
                 </div>
 
                 {verifiedFreeModels.length > 0 ? (
                   <div className="space-y-2">
-                    <p className="text-slate-600 text-xs">
-                      The following model is verified to have 0 listed Pollen image tokens under current live catalog rules:
+                    <p className="text-slate-600 text-xs leading-relaxed">
+                      Generates authentic healthcare visual artwork via the verified zero-cost model, then composes publication-grade GIMA marketing posters with vector branding, official logo, ROHP/RNCP credentials, clean typography, structured highlight cards, and high-impact CTA.
                     </p>
                     {verifiedFreeModels.map((fm) => (
                       <div key={fm.id} className="p-2.5 rounded-lg bg-white border border-emerald-200 flex items-center justify-between">
                         <div>
                           <div className="font-bold text-slate-900">{fm.name}</div>
-                          <div className="text-[10px] text-slate-500">{fm.publisher} • Subject to community provider rate limits</div>
+                          <div className="text-[10px] text-slate-500">
+                            {fm.publisher} • Visual Plate Generator (0 Pollen) + Studio Poster Composer
+                          </div>
                         </div>
                         <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded border border-emerald-200">
                           Active Free Model
@@ -1600,21 +1671,41 @@ function CreateCreativeContent() {
                       <span className="font-bold text-slate-800 flex items-center gap-1.5">
                         <span>Variation {slot.variationNumber}</span>
                         {slot.status === 'ready' && (
-                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
-                            Ready
+                          <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded border ${
+                            currentVar?.isHybridPoster
+                              ? 'text-teal-800 bg-teal-50 border-teal-200'
+                              : 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                          }`}>
+                            {currentVar?.isHybridPoster ? '★ Hybrid Poster (0 Pollen)' : 'Ready'}
                           </span>
                         )}
                         {slot.status === 'generating' && (
                           <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200 animate-pulse">
-                            Generating...
+                            Synthesizing & Composing...
                           </span>
                         )}
                       </span>
-                      {slot.durationMs && (
-                        <span className="text-[10px] font-mono text-slate-500">
-                          {(slot.durationMs / 1000).toFixed(1)}s
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {currentVar?.isHybridPoster && currentVar.rawBackgroundUrl && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setShowRawBg((prev) => ({
+                                ...prev,
+                                [slot.index]: !prev[slot.index],
+                              }))
+                            }
+                            className="text-[10px] font-semibold text-gima-navy hover:underline bg-white px-2 py-0.5 rounded border border-slate-200 shadow-2xs"
+                          >
+                            {showRawBg[slot.index] ? 'Show Poster' : 'Show Background Visual'}
+                          </button>
+                        )}
+                        {slot.durationMs && (
+                          <span className="text-[10px] font-mono text-slate-500">
+                            {(slot.durationMs / 1000).toFixed(1)}s
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Stationary Media Frame with Strict Aspect Ratio */}
@@ -1625,7 +1716,9 @@ function CreateCreativeContent() {
                           <div className="skeleton-card-inner-shimmer" />
                           <Sparkles className="h-6 w-6 text-gima-gold-light animate-spin" />
                           <span className="text-xs font-semibold text-slate-200 tracking-wide">
-                            Synthesizing Variation {slot.variationNumber}...
+                            {generationMode === 'free-models'
+                              ? `Synthesizing Visual Plate & Composing Poster...`
+                              : `Synthesizing Variation ${slot.variationNumber}...`}
                           </span>
                         </div>
                       )}
@@ -1648,7 +1741,11 @@ function CreateCreativeContent() {
                       {slot.status === 'ready' && currentVar && (
                         <div className="relative w-full h-full group">
                           <img
-                            src={currentVar.previewImageUrl}
+                            src={
+                              currentVar.isHybridPoster && showRawBg[slot.index] && currentVar.rawBackgroundUrl
+                                ? currentVar.rawBackgroundUrl
+                                : currentVar.previewImageUrl
+                            }
                             alt={`Variation ${slot.variationNumber}`}
                             className="w-full h-full object-cover"
                           />
@@ -1657,7 +1754,13 @@ function CreateCreativeContent() {
                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 p-4">
                             <button
                               type="button"
-                              onClick={() => handleDownload(currentVar.previewImageUrl, slot.variationNumber)}
+                              onClick={() => {
+                                const dlUrl =
+                                  currentVar.isHybridPoster && showRawBg[slot.index] && currentVar.rawBackgroundUrl
+                                    ? currentVar.rawBackgroundUrl
+                                    : currentVar.previewImageUrl;
+                                handleDownload(dlUrl, slot.variationNumber);
+                              }}
                               title="Download Image"
                               className="p-2 rounded-xl bg-white/90 text-slate-800 hover:bg-white shadow-md transition-all"
                             >

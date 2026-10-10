@@ -172,6 +172,8 @@ export interface GeneratedVariation {
   isRealGemini?: boolean;
   source?: 'pollinations' | 'free-models' | 'gemini-web-handoff' | 'gemini-api' | 'demo-preview';
   isWebHandoff?: boolean;
+  rawBackgroundUrl?: string;
+  isHybridPoster?: boolean;
 }
 
 export interface ApiGenerationResponse {

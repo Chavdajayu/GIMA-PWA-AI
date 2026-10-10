@@ -33,8 +33,11 @@ export class PollinationsImageProvider implements ImageGenerationProvider {
   isConnected = true;
   selectedModel?: string;
 
-  constructor(model?: string) {
+  providerMode: 'pollinations' | 'free-models' = 'pollinations';
+
+  constructor(model?: string, providerMode: 'pollinations' | 'free-models' = 'pollinations') {
     this.selectedModel = model;
+    this.providerMode = providerMode;
   }
 
   /**
@@ -61,7 +64,7 @@ export class PollinationsImageProvider implements ImageGenerationProvider {
         },
         body: JSON.stringify({
           ...request,
-          provider: 'pollinations',
+          provider: this.providerMode,
           model: modelToUse,
           variationIndex,
           variationsCount: 1,

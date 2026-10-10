@@ -13,6 +13,7 @@ import {
   mapAspectRatioToGemini,
   composePollinationsImagePrompt
 } from '@/lib/promptComposer';
+import { composeFreeBackgroundPrompt } from '@/lib/freePromptComposer';
 
 export const runtime = 'nodejs';
 export const maxDuration = 120; // 120s max duration for serverless compute on Vercel
@@ -230,12 +231,10 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiGeneration
 
       // Helper function to generate a single variation
       const generateSingle = async (idx: number) => {
-        const { prompt: cleanPrompt, summary: promptSummary } = composePollinationsImagePrompt(
-          body,
-          brandConfig,
-          retrievedKnowledge,
-          idx
-        );
+        const isFreeMode = body.provider === 'free-models' || selectedModel.toLowerCase().includes('sdxl-lightning-free');
+        const { prompt: cleanPrompt, summary: promptSummary } = isFreeMode
+          ? composeFreeBackgroundPrompt(body, brandConfig, retrievedKnowledge, idx)
+          : composePollinationsImagePrompt(body, brandConfig, retrievedKnowledge, idx);
 
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 90000); // 90s generous timeout guard
