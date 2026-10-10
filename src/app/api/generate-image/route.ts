@@ -211,7 +211,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiGeneration
     // Determine target provider:
     // Default to Pollinations if configured and not explicitly requested otherwise
     const pollinationsKey = process.env.POLLINATIONS_API_KEY?.trim();
-    const usePollinations = (body.provider === 'pollinations' || (!body.provider && Boolean(pollinationsKey))) && Boolean(pollinationsKey);
+    const usePollinations = (body.provider === 'pollinations' || body.provider === 'free-models' || (!body.provider && Boolean(pollinationsKey))) && Boolean(pollinationsKey);
 
     // ========================================================
     // PATH A: POLLINATIONS REAL IMAGE GENERATION (PHASE 3 / 3.1)

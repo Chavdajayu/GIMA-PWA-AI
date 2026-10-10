@@ -151,7 +151,7 @@ export interface GenerationSlot {
   durationMs?: number;
 }
 
-export type GenerationMode = 'pollinations' | 'gemini-web-handoff' | 'gemini-api' | 'demo-preview';
+export type GenerationMode = 'pollinations' | 'free-models' | 'demo-preview' | 'gemini-web-handoff' | 'gemini-api';
 
 export type ProjectStatus = 'Draft' | 'In Review' | 'Approved' | 'Archived';
 
@@ -170,7 +170,7 @@ export interface GeneratedVariation {
   generationTimeMs?: number;
   promptSummary?: string;
   isRealGemini?: boolean;
-  source?: 'pollinations' | 'gemini-web-handoff' | 'gemini-api' | 'demo-preview';
+  source?: 'pollinations' | 'free-models' | 'gemini-web-handoff' | 'gemini-api' | 'demo-preview';
   isWebHandoff?: boolean;
 }
 
@@ -233,6 +233,12 @@ export interface PollinationsModelItem {
   maxReferenceImages: number;
   health?: string;
   paidOnly?: boolean;
+  rank?: number;
+  qualityCategory?: 'Premium' | 'High Quality' | 'Balanced' | 'Fast Draft' | 'Free';
+  costPerImageEstimate?: number | null;
+  costEstimateText?: string;
+  isZeroPrice?: boolean;
+  referenceSupportText?: string;
 }
 
 export interface PollinationsStatusResponse {
@@ -263,7 +269,7 @@ export interface ProjectRecord {
   thumbnail: string;
   request: GenerationRequest;
   variations: GeneratedVariation[];
-  provider?: 'pollinations' | 'gemini-web-handoff' | 'gemini-api' | 'demo-preview';
+  provider?: GenerationMode;
   prompt?: string;
   extraPrompt?: string;
   knowledgeSources?: string[];
