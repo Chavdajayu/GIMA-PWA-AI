@@ -180,3 +180,26 @@ Includes subtle CSS shimmer (`@keyframes shimmer`), small sparkle icon, "Creatin
 ### 6. Controlled Poster Copy
 `composePollinationsImagePrompt` uses structured, clean art direction with quoted headline/subheadline/CTA and explicit negative constraints (`no fake medical claims, no invented credentials, no gibberish text`) to prevent diffusion models from painting distorted paragraph blocks directly onto the graphic.
 
+---
+
+## 4. Cloudflare Workers AI Verification & Production Deployment
+
+### 1. Verified Model Benchmarks (`@cf/black-forest-labs/flux-2-klein-9b`)
+- **Direct REST API Status**: `200 OK`
+- **Output Latency**: `~2.98s` (direct) / `~3.30s` (via `/api/generate-image`)
+- **Neuron Consumption**: `1,363.64 Neurons` per generation (verified via `cf-ai-neurons: 1363.64` response header)
+- **Daily Quota Management**: 10,000 Neurons/day free allowance on Cloudflare Free Workers plan (~7 full-resolution 1024x1024 or 1024x1280 images/day at zero cost)
+- **Supported Resolutions**: 
+  - `1:1` Square (`1024x1024`)
+  - `4:5` Portrait (`1024x1280`)
+  - `16:9` Landscape (`1280x720`)
+  - `9:16` Vertical (`720x1280`)
+  - `A4` Document (`1024x1448`)
+
+### 2. Vercel Production Deployment Checklist
+Ensure the following environment variables are configured in **Vercel Project Settings → Environment Variables**:
+- `CLOUDFLARE_ACCOUNT_ID`: Cloudflare Account ID (Server-only)
+- `CLOUDFLARE_API_TOKEN`: Cloudflare API Token with `Workers AI Write, Workers AI Read` permissions (Server-only)
+- `CLOUDFLARE_IMAGE_MODEL`: `@cf/black-forest-labs/flux-2-klein-9b` (Server-only)
+- `POLLINATIONS_API_KEY`: Server-side secret key for live catalog models (Server-only)
+
