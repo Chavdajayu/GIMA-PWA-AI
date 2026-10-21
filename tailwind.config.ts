@@ -44,8 +44,7 @@ const config: Config = {
         }
       },
       fontFamily: {
-        sans: ["var(--font-sans)", "Inter", "system-ui", "-apple-system", "sans-serif"],
-        editorial: ["var(--font-serif)", "Georgia", "serif"],
+        sans: ["var(--font-sans)", "Aptos", "Segoe UI", "Inter", "-apple-system", "BlinkMacSystemFont", "Arial", "sans-serif"],
       },
       boxShadow: {
         'subtle': '0 1px 3px rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.02)',

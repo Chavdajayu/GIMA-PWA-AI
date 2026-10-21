@@ -845,47 +845,48 @@ function CreateCreativeContent() {
   };
 
   return (
-    <div className="space-y-6 pb-20 animate-fade-in max-w-7xl mx-auto">
+    <div className="space-y-8 pb-20 animate-fade-in max-w-7xl mx-auto">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
-          <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
             <span>GIMA AI Creative Studio</span>
-            <span className="text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-200 px-2 py-0.5 rounded-full uppercase">
+            <span className="text-xs font-bold bg-amber-100 text-amber-950 border border-amber-300 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
               Production
             </span>
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-sm sm:text-base text-slate-600 mt-1">
             Create brand-compliant, clinical marketing posters and social campaigns grounded in accredited GIMA knowledge.
           </p>
         </div>
 
         {/* Balance Badge with Live Refresh */}
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 bg-white border border-slate-200 shadow-xs px-3 py-1.5 rounded-xl text-xs">
-            <span className="flex items-center gap-1 font-semibold text-slate-700">
-              <Zap className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
+          <div className="flex items-center gap-2.5 bg-white border border-slate-300 shadow-subtle px-3.5 py-2 rounded-xl text-sm">
+            <span className="flex items-center gap-1.5 font-bold text-slate-800">
+              <Zap className="h-4 w-4 text-amber-500 fill-amber-500" />
               <span>Balance:</span>
             </span>
-            <span className="font-extrabold text-slate-900 font-mono">
+            <span className="font-extrabold text-slate-900 font-mono text-sm">
               {typeof pollinationsStatus?.balance === 'number'
                 ? `${pollinationsStatus.balance.toFixed(4)} Pollen`
-                : 'Pollen loading...'}
+                : 'Loading...'}
             </span>
             <button
               type="button"
               onClick={refreshPollenBalance}
               disabled={isRefreshingBalance}
               title="Refresh Pollen balance"
-              className="p-1 text-slate-400 hover:text-slate-800 rounded transition-colors disabled:opacity-50"
+              aria-label="Refresh Pollen balance"
+              className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50 min-h-[36px] min-w-[36px] flex items-center justify-center"
             >
-              <RefreshCw className={`h-3 w-3 ${isRefreshingBalance ? 'animate-spin text-gima-navy' : ''}`} />
+              <RefreshCw className={`h-3.5 w-3.5 ${isRefreshingBalance ? 'animate-spin text-gima-navy' : ''}`} />
             </button>
           </div>
         </div>
       </div>
 
-      {/* Main Grid: Left Creation Flow (Simplified 6 Sections) | Right Real-Time Results */}
+      {/* Main Grid: Left Creation Flow (Streamlined 6 Sections) | Right Real-Time Results */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* ========================================================
             LEFT COLUMN: STREAMLINED CREATIVE WORKFLOW (SECTIONS 1 - 6)
@@ -893,27 +894,27 @@ function CreateCreativeContent() {
         <div className="lg:col-span-7 space-y-6">
 
           {/* SECTION 1: WHAT ARE WE PROMOTING? */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-              <div className="flex items-center gap-2 font-bold text-slate-900 text-sm">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gima-navy text-white text-[10px]">
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-subtle space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5 font-bold text-slate-900 text-base sm:text-lg">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gima-navy text-white text-xs font-extrabold">
                   1
                 </span>
                 <span>What are we promoting?</span>
               </div>
-              <span className="text-[11px] text-slate-400 font-medium">GIMA Curriculum & Clinical Content</span>
+              <span className="text-xs sm:text-sm text-slate-600 font-medium">GIMA Curriculum & Clinical Content</span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Campaign Type */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-slate-700">
+                <label className="block text-sm sm:text-base font-semibold text-slate-900">
                   Campaign Objective
                 </label>
                 <select
                   value={campaignType}
                   onChange={(e) => setCampaignType(e.target.value as CampaignType)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2 text-xs font-medium text-slate-800 focus:border-gima-navy focus:bg-white focus:outline-none transition-all"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm sm:text-base font-medium text-slate-900 focus:border-gima-navy focus:outline-none focus:ring-2 focus:ring-gima-navy/20 transition-all"
                 >
                   {campaignOptions.map((c) => (
                     <option key={c.label} value={c.label}>
@@ -925,13 +926,13 @@ function CreateCreativeContent() {
 
               {/* Course Selection */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-slate-700">
+                <label className="block text-sm sm:text-base font-semibold text-slate-900">
                   Target Course / Program
                 </label>
                 <select
                   value={course}
                   onChange={(e) => handleSelectCourse(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2 text-xs font-medium text-slate-800 focus:border-gima-navy focus:bg-white focus:outline-none transition-all"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm sm:text-base font-medium text-slate-900 focus:border-gima-navy focus:outline-none focus:ring-2 focus:ring-gima-navy/20 transition-all"
                 >
                   <optgroup label="Free Courses (Authoritative PDF Sources)">
                     <option value="Theories of Aging">Theories of Aging (12 Clinical PDFs)</option>
@@ -951,7 +952,7 @@ function CreateCreativeContent() {
 
             {/* Topic Specification */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-700">
+              <label className="block text-sm sm:text-base font-semibold text-slate-900">
                 Core Clinical Topic & Highlights
               </label>
               <input
@@ -959,27 +960,27 @@ function CreateCreativeContent() {
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
                 placeholder="e.g. Cellular Senescence, Free Radicals & Glycation"
-                className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2 text-xs font-medium text-slate-800 focus:border-gima-navy focus:bg-white focus:outline-none transition-all"
+                className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm sm:text-base font-medium text-slate-900 placeholder:text-slate-400 focus:border-gima-navy focus:outline-none focus:ring-2 focus:ring-gima-navy/20 transition-all"
               />
             </div>
           </div>
 
           {/* SECTION 2: WHERE WILL IT BE PUBLISHED? */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-              <div className="flex items-center gap-2 font-bold text-slate-900 text-sm">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gima-navy text-white text-[10px]">
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-subtle space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5 font-bold text-slate-900 text-base sm:text-lg">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gima-navy text-white text-xs font-extrabold">
                   2
                 </span>
                 <span>Where will it be published?</span>
               </div>
-              <span className="text-[11px] text-slate-400 font-medium">Channel, Format & Dimensions</span>
+              <span className="text-xs sm:text-sm text-slate-600 font-medium">Channel, Format & Dimensions</span>
             </div>
 
             {/* Platform Selection */}
             <div className="space-y-2">
-              <label className="block text-xs font-semibold text-slate-700">Platform</label>
-              <div className="flex flex-wrap gap-1.5">
+              <label className="block text-sm sm:text-base font-semibold text-slate-900">Target Platforms</label>
+              <div className="flex flex-wrap gap-2">
                 {platformOptions.map((p) => {
                   const isSelected = selectedPlatforms.includes(p.label);
                   return (
@@ -993,13 +994,13 @@ function CreateCreativeContent() {
                             : [...prev, p.label]
                         )
                       }
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all min-h-[40px] ${
                         isSelected
-                          ? 'bg-gima-navy text-white shadow-xs'
-                          : 'border border-slate-200 bg-slate-50/50 text-slate-600 hover:bg-slate-100'
+                          ? 'bg-gima-navy text-white shadow-sm ring-1 ring-gima-navy-dark'
+                          : 'border border-slate-300 bg-slate-50/70 text-slate-700 hover:bg-slate-100'
                       }`}
                     >
-                      <span>{p.icon}</span>
+                      <span className="text-base">{p.icon}</span>
                       <span>{p.label}</span>
                     </button>
                   );
@@ -1010,21 +1011,21 @@ function CreateCreativeContent() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
               {/* Creative Type */}
               <div className="space-y-2">
-                <label className="block text-xs font-semibold text-slate-700">Creative Type</label>
-                <div className="grid grid-cols-2 gap-1.5">
+                <label className="block text-sm sm:text-base font-semibold text-slate-900">Creative Type</label>
+                <div className="grid grid-cols-2 gap-2">
                   {creativeTypes.slice(0, 4).map((c) => (
                     <button
                       type="button"
                       key={c.label}
                       onClick={() => setCreativeType(c.label)}
-                      className={`text-left px-2.5 py-2 rounded-xl text-xs font-semibold transition-all border ${
+                      className={`text-left px-3 py-2.5 rounded-xl text-sm font-bold transition-all border-2 min-h-[58px] ${
                         creativeType === c.label
-                          ? 'border-gima-navy bg-navy-50/40 text-gima-navy font-bold'
-                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                          ? 'border-gima-navy bg-blue-50/50 text-gima-navy shadow-xs'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                       }`}
                     >
                       <div>{c.label}</div>
-                      <div className="text-[10px] text-slate-400 font-normal leading-tight">{c.desc}</div>
+                      <div className="text-xs text-slate-600 font-normal leading-tight mt-0.5">{c.desc}</div>
                     </button>
                   ))}
                 </div>
@@ -1032,21 +1033,21 @@ function CreateCreativeContent() {
 
               {/* Aspect Ratio */}
               <div className="space-y-2">
-                <label className="block text-xs font-semibold text-slate-700">Aspect Ratio</label>
-                <div className="grid grid-cols-1 gap-1.5">
+                <label className="block text-sm sm:text-base font-semibold text-slate-900">Aspect Ratio</label>
+                <div className="grid grid-cols-1 gap-2">
                   {aspectRatioOptions.slice(0, 3).map((r) => (
                     <button
                       type="button"
                       key={r.value}
                       onClick={() => setAspectRatio(r.value)}
-                      className={`flex items-center justify-between px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
+                      className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-bold transition-all border-2 min-h-[44px] ${
                         aspectRatio === r.value
-                          ? 'border-gima-navy bg-navy-50/40 text-gima-navy font-bold'
-                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                          ? 'border-gima-navy bg-blue-50/50 text-gima-navy shadow-xs'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                       }`}
                     >
                       <span>{r.label}</span>
-                      <span className="text-[10px] text-slate-400 font-mono">{r.value}</span>
+                      <span className="text-xs text-slate-600 font-mono font-semibold">{r.value}</span>
                     </button>
                   ))}
                 </div>
@@ -1055,18 +1056,18 @@ function CreateCreativeContent() {
           </div>
 
           {/* SECTION 3: VISUAL DIRECTION */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-              <div className="flex items-center gap-2 font-bold text-slate-900 text-sm">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gima-navy text-white text-[10px]">
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-subtle space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5 font-bold text-slate-900 text-base sm:text-lg">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gima-navy text-white text-xs font-extrabold">
                   3
                 </span>
                 <span>Visual Direction</span>
               </div>
-              <span className="text-[11px] text-slate-400 font-medium">GIMA Brand Styles</span>
+              <span className="text-xs sm:text-sm text-slate-600 font-medium">GIMA Brand Art Direction</span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               {visualStyles.map((vs) => {
                 const isSelected = style === vs.title;
                 return (
@@ -1074,27 +1075,27 @@ function CreateCreativeContent() {
                     type="button"
                     key={vs.title}
                     onClick={() => setStyle(vs.title)}
-                    className={`text-left p-3 rounded-xl border transition-all relative flex flex-col justify-between ${
+                    className={`text-left p-3.5 rounded-xl border-2 transition-all relative flex flex-col justify-between min-h-[115px] ${
                       isSelected
-                        ? 'border-gima-navy bg-navy-50/40 shadow-xs'
+                        ? 'border-gima-navy bg-blue-50/40 shadow-subtle ring-1 ring-gima-navy'
                         : 'border-slate-200 bg-white hover:border-slate-300'
                     }`}
                   >
                     <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-bold text-slate-900">{vs.title}</span>
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-sm font-bold text-slate-900">{vs.title}</span>
+                        <span className="text-xs font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-800">
                           {vs.previewBadge}
                         </span>
                       </div>
-                      <p className="text-[11px] text-slate-500 leading-snug line-clamp-2">
+                      <p className="text-xs sm:text-sm text-slate-600 leading-relaxed line-clamp-3">
                         {vs.desc}
                       </p>
                     </div>
                     {isSelected && (
-                      <div className="mt-2 flex items-center gap-1 text-[10px] font-bold text-gima-navy">
-                        <Check className="h-3 w-3" />
-                        <span>Active</span>
+                      <div className="mt-2.5 flex items-center gap-1.5 text-xs font-bold text-gima-navy">
+                        <Check className="h-3.5 w-3.5 stroke-[2.5]" />
+                        <span>Selected Direction</span>
                       </div>
                     )}
                   </button>
@@ -1104,10 +1105,10 @@ function CreateCreativeContent() {
           </div>
 
           {/* SECTION 4: REFERENCE IMAGES */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-              <div className="flex items-center gap-2 font-bold text-slate-900 text-sm">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gima-navy text-white text-[10px]">
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-subtle space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5 font-bold text-slate-900 text-base sm:text-lg">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gima-navy text-white text-xs font-extrabold">
                   4
                 </span>
                 <span>Reference Images</span>
@@ -1116,18 +1117,18 @@ function CreateCreativeContent() {
                 <button
                   type="button"
                   onClick={() => setIsAssetModalOpen(true)}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-bold text-gima-navy hover:bg-slate-50 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-bold text-gima-navy hover:bg-slate-50 transition-colors min-h-[38px]"
                 >
-                  <PlusCircle className="h-3.5 w-3.5" />
+                  <PlusCircle className="h-4 w-4" />
                   <span>Add GIMA Asset</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-300 text-xs sm:text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors min-h-[38px]"
                 >
-                  <Upload className="h-3.5 w-3.5" />
-                  <span>Upload</span>
+                  <Upload className="h-4 w-4" />
+                  <span>Upload Custom</span>
                 </button>
                 <input
                   type="file"
@@ -1140,23 +1141,23 @@ function CreateCreativeContent() {
             </div>
 
             {/* Asset chips display */}
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2.5">
               {selectedAssets.length === 0 ? (
-                <div className="text-xs text-slate-400 italic py-1">
+                <div className="text-sm text-slate-600 italic py-1">
                   No reference assets attached. Text-only visual generation will be used.
                 </div>
               ) : (
                 selectedAssets.map((asset) => (
                   <div
                     key={asset.id}
-                    className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs group"
+                    className="flex items-center gap-2.5 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm group"
                   >
                     <img
                       src={asset.url}
                       alt={asset.name}
-                      className="h-6 w-6 rounded object-cover border border-slate-200 bg-white"
+                      className="h-8 w-8 rounded-lg object-contain border border-slate-200 bg-white"
                     />
-                    <span className="font-semibold text-slate-800 text-[11px] max-w-[140px] truncate">
+                    <span className="font-bold text-slate-900 text-xs sm:text-sm max-w-[160px] truncate">
                       {asset.name}
                     </span>
                     <button
@@ -1164,9 +1165,10 @@ function CreateCreativeContent() {
                       onClick={() =>
                         setSelectedAssets((prev) => prev.filter((a) => a.id !== asset.id))
                       }
-                      className="text-slate-400 hover:text-red-600 rounded p-0.5 transition-colors"
+                      className="text-slate-400 hover:text-red-600 rounded-lg p-1 transition-colors min-h-[28px] min-w-[28px] flex items-center justify-center"
+                      aria-label={`Remove ${asset.name}`}
                     >
-                      <X className="h-3.5 w-3.5" />
+                      <X className="h-4 w-4" />
                     </button>
                   </div>
                 ))
@@ -1174,8 +1176,8 @@ function CreateCreativeContent() {
             </div>
 
             {/* Model reference capability notice */}
-            <div className="rounded-xl bg-slate-50 p-2.5 text-[11px] text-slate-500 flex items-center gap-2 border border-slate-100">
-              <Info className="h-4 w-4 text-slate-400 shrink-0" />
+            <div className="rounded-xl bg-slate-50 p-3 text-xs sm:text-sm text-slate-700 flex items-center gap-2.5 border border-slate-200">
+              <Info className="h-4 w-4 text-gima-navy shrink-0" />
               <span>
                 {activeModel?.supportsReferenceImages
                   ? `Active model (${activeModel.name}) supports direct reference image conditioning.`
@@ -1185,10 +1187,10 @@ function CreateCreativeContent() {
           </div>
 
           {/* SECTION 5: CONTENT AND INSTRUCTIONS */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-              <div className="flex items-center gap-2 font-bold text-slate-900 text-sm">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gima-navy text-white text-[10px]">
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-subtle space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5 font-bold text-slate-900 text-base sm:text-lg">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gima-navy text-white text-xs font-extrabold">
                   5
                 </span>
                 <span>Content & Creative Brief</span>
@@ -1196,67 +1198,67 @@ function CreateCreativeContent() {
               <button
                 type="button"
                 onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
-                className="text-[11px] font-bold text-gima-navy hover:underline flex items-center gap-1"
+                className="text-xs sm:text-sm font-bold text-gima-navy hover:underline flex items-center gap-1 min-h-[36px]"
               >
                 <span>{showAdvancedOptions ? 'Hide' : 'Show'} Advanced Options</span>
-                {showAdvancedOptions ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                {showAdvancedOptions ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-slate-700">Primary Headline</label>
+                <label className="block text-sm sm:text-base font-semibold text-slate-900">Primary Headline</label>
                 <input
                   type="text"
                   value={headline}
                   onChange={(e) => setHeadline(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2 text-xs font-medium text-slate-800 focus:border-gima-navy focus:bg-white focus:outline-none transition-all"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm sm:text-base font-medium text-slate-900 focus:border-gima-navy focus:outline-none focus:ring-2 focus:ring-gima-navy/20 transition-all"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-slate-700">Call to Action (CTA)</label>
+                <label className="block text-sm sm:text-base font-semibold text-slate-900">Call to Action (CTA)</label>
                 <input
                   type="text"
                   value={cta}
                   onChange={(e) => setCta(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2 text-xs font-medium text-slate-800 focus:border-gima-navy focus:bg-white focus:outline-none transition-all"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm sm:text-base font-medium text-slate-900 focus:border-gima-navy focus:outline-none focus:ring-2 focus:ring-gima-navy/20 transition-all"
                 />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-700">Target Audience</label>
+              <label className="block text-sm sm:text-base font-semibold text-slate-900">Target Audience</label>
               <input
                 type="text"
                 value={audience}
                 onChange={(e) => setAudience(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2 text-xs font-medium text-slate-800 focus:border-gima-navy focus:bg-white focus:outline-none transition-all"
+                className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm sm:text-base font-medium text-slate-900 focus:border-gima-navy focus:outline-none focus:ring-2 focus:ring-gima-navy/20 transition-all"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-700">Extra Art Direction & Composition</label>
+              <label className="block text-sm sm:text-base font-semibold text-slate-900">Extra Art Direction & Composition</label>
               <textarea
                 value={extraPrompt}
                 onChange={(e) => setExtraPrompt(e.target.value)}
-                rows={2}
+                rows={3}
                 placeholder="e.g. Create a premium clinical editorial poster with the headline on the left, a clean scientific background and the instructor on the right."
-                className="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2 text-xs font-medium text-slate-800 focus:border-gima-navy focus:bg-white focus:outline-none transition-all resize-none"
+                className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm sm:text-base font-medium text-slate-900 placeholder:text-slate-400 focus:border-gima-navy focus:outline-none focus:ring-2 focus:ring-gima-navy/20 transition-all resize-none"
               />
             </div>
 
             {/* Collapsible Advanced Options */}
             {showAdvancedOptions && (
-              <div className="pt-3 border-t border-slate-100 space-y-3 animate-fade-in text-xs">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="pt-3 border-t border-slate-200 space-y-3 animate-fade-in text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <span className="font-semibold text-slate-700 block mb-1">Language</span>
-                    <span className="text-slate-500 text-xs">English (Default)</span>
+                    <span className="font-semibold text-slate-800 block mb-1">Language</span>
+                    <span className="text-slate-600 text-sm">English (Default)</span>
                   </div>
                   <div>
-                    <span className="font-semibold text-slate-700 block mb-1">Brand Emphasis</span>
-                    <span className="text-slate-500 text-xs">Clinical Authority & BOIM Accreditation</span>
+                    <span className="font-semibold text-slate-800 block mb-1">Brand Emphasis</span>
+                    <span className="text-slate-600 text-sm">Clinical Authority & BOIM Accreditation</span>
                   </div>
                 </div>
               </div>
@@ -1264,26 +1266,26 @@ function CreateCreativeContent() {
           </div>
 
           {/* SECTION 6: VARIATIONS, MODEL, POLLEN COST & GENERATION */}
-          <div className="rounded-2xl border-2 border-gima-navy/20 bg-white p-5 shadow-sm space-y-5">
+          <div className="rounded-2xl border-2 border-gima-navy/30 bg-white p-6 shadow-subtle space-y-6">
             {/* Generation Mode Selector (Exactly 3 Approved Modes) */}
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                  <Sliders className="h-3.5 w-3.5 text-gima-navy" />
+                <label className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+                  <Sliders className="h-4 w-4 text-gima-navy" />
                   <span>Generation Engine Mode</span>
                 </label>
-                <span className="text-[10px] text-slate-400 font-medium">Approved Marketing Modes</span>
+                <span className="text-xs text-slate-600 font-semibold">Approved Marketing Modes</span>
               </div>
 
-              <div className="grid grid-cols-3 gap-2 bg-slate-100 p-1 rounded-xl text-xs">
+              <div className="grid grid-cols-3 gap-2 bg-slate-100 p-1.5 rounded-2xl text-sm">
                 {/* 1. Pollinations AI */}
                 <button
                   type="button"
                   onClick={() => setGenerationMode('pollinations')}
-                  className={`py-2 px-3 rounded-lg font-bold transition-all text-center ${
+                  className={`py-2.5 px-3 rounded-xl font-bold transition-all text-center min-h-[44px] ${
                     generationMode === 'pollinations'
-                      ? 'bg-gima-navy text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-gima-navy text-white shadow-sm'
+                      : 'text-slate-700 hover:text-slate-950'
                   }`}
                 >
                   Pollinations AI
@@ -1293,15 +1295,15 @@ function CreateCreativeContent() {
                 <button
                   type="button"
                   onClick={() => setGenerationMode('free-models')}
-                  className={`py-2 px-3 rounded-lg font-bold transition-all text-center flex items-center justify-center gap-1 ${
+                  className={`py-2.5 px-3 rounded-xl font-bold transition-all text-center flex items-center justify-center gap-1.5 min-h-[44px] ${
                     generationMode === 'free-models'
-                      ? 'bg-gima-navy text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-gima-navy text-white shadow-sm'
+                      : 'text-slate-700 hover:text-slate-950'
                   }`}
                 >
                   <span>Free Models</span>
-                  <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded font-mono font-bold">
-                    {serverProviderStatus?.cloudflareConfigured ? 'FLUX.2 Klein' : 'Zero Cost'}
+                  <span className="text-xs bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded-md font-mono font-bold">
+                    {serverProviderStatus?.cloudflareConfigured ? 'FLUX.2' : 'Zero Cost'}
                   </span>
                 </button>
 
@@ -1309,10 +1311,10 @@ function CreateCreativeContent() {
                 <button
                   type="button"
                   onClick={() => setGenerationMode('demo-preview')}
-                  className={`py-2 px-3 rounded-lg font-bold transition-all text-center ${
+                  className={`py-2.5 px-3 rounded-xl font-bold transition-all text-center min-h-[44px] ${
                     generationMode === 'demo-preview'
-                      ? 'bg-gima-navy text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-gima-navy text-white shadow-sm'
+                      : 'text-slate-700 hover:text-slate-950'
                   }`}
                 >
                   Demo Preview
@@ -1324,65 +1326,68 @@ function CreateCreativeContent() {
             {generationMode === 'pollinations' && (
               <div className="space-y-4 pt-1 animate-fade-in">
                 {/* Searchable Model Selector */}
-                <div className="space-y-1.5 relative">
+                <div className="space-y-2 relative">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                      <Cpu className="h-3.5 w-3.5 text-gima-gold-dark" />
+                    <label className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                      <Cpu className="h-4 w-4 text-gima-gold-dark" />
                       <span>Model Selector — GIMA Recommended Image Quality</span>
                     </label>
-                    <span className="text-[10px] text-slate-400 font-medium">Ranked High to Low Quality</span>
+                    <span className="text-xs text-slate-600 font-semibold">Ranked by Quality</span>
                   </div>
 
                   {/* Active Selected Model Card / Toggle */}
                   <div
                     onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
-                    className="w-full cursor-pointer rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100/70 p-3 flex items-center justify-between transition-all"
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={isModelDropdownOpen}
+                    className="w-full cursor-pointer rounded-xl border-2 border-slate-300 bg-slate-50 hover:bg-slate-100 p-3.5 flex items-center justify-between transition-all focus:outline-none focus:ring-2 focus:ring-gima-navy"
                   >
-                    <div className="flex items-center gap-2.5">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gima-navy text-white font-extrabold text-xs">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gima-navy text-white font-extrabold text-xs">
                         #{activeModel?.rank || 1}
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-xs text-slate-900">
+                          <span className="font-bold text-sm sm:text-base text-slate-900">
                             {activeModel?.name || 'Selected Model'}
                           </span>
                           <span
-                            className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${
+                            className={`text-xs font-bold px-2 py-0.5 rounded ${
                               activeModel?.qualityCategory === 'Premium'
-                                ? 'bg-amber-100 text-amber-900 border border-amber-200'
+                                ? 'bg-amber-100 text-amber-950 border border-amber-300'
                                 : activeModel?.qualityCategory === 'High Quality'
-                                ? 'bg-sky-100 text-sky-900 border border-sky-200'
-                                : 'bg-emerald-100 text-emerald-900 border border-emerald-200'
+                                ? 'bg-sky-100 text-sky-950 border border-sky-300'
+                                : 'bg-emerald-100 text-emerald-950 border border-emerald-300'
                             }`}
                           >
                             {activeModel?.qualityCategory || 'High Quality'}
                           </span>
                         </div>
-                        <div className="text-[10px] text-slate-500 font-medium flex items-center gap-2">
+                        <div className="text-xs text-slate-600 font-medium flex items-center gap-2 mt-0.5">
                           <span>By {activeModel?.publisher || 'Community'}</span>
                           <span>•</span>
-                          <span className="font-semibold text-slate-700">
+                          <span className="font-bold text-slate-800">
                             Est: {activeModel?.costEstimateText || 'Variable'}
                           </span>
                         </div>
                       </div>
                     </div>
-                    <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${isModelDropdownOpen ? 'rotate-180' : ''}`} />
+                    <ChevronDown className={`h-5 w-5 text-slate-500 transition-transform ${isModelDropdownOpen ? 'rotate-180' : ''}`} />
                   </div>
 
                   {/* Expandable Model Catalog List */}
                   {isModelDropdownOpen && (
-                    <div className="absolute top-full left-0 right-0 z-40 mt-1 rounded-2xl border border-slate-200 bg-white p-2 shadow-elevated max-h-80 overflow-y-auto space-y-1.5">
+                    <div className="absolute top-full left-0 right-0 z-40 mt-1.5 rounded-2xl border border-slate-300 bg-white p-2.5 shadow-elevated max-h-80 overflow-y-auto space-y-1.5">
                       {/* Search Bar */}
-                      <div className="relative sticky top-0 bg-white pb-2 z-10 border-b border-slate-100">
-                        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                      <div className="relative sticky top-0 bg-white pb-2.5 z-10 border-b border-slate-200">
+                        <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                         <input
                           type="text"
                           placeholder="Search live models (OpenAI, FLUX, Ideogram, Gemini)..."
                           value={modelSearchQuery}
                           onChange={(e) => setModelSearchQuery(e.target.value)}
-                          className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-8 pr-3 py-1.5 text-xs text-slate-800 focus:outline-none"
+                          className="w-full rounded-xl border border-slate-300 bg-slate-50 pl-9 pr-3.5 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-gima-navy"
                         />
                       </div>
 
@@ -1393,31 +1398,31 @@ function CreateCreativeContent() {
                             setSelectedModelId(m.id);
                             setIsModelDropdownOpen(false);
                           }}
-                          className={`p-2.5 rounded-xl cursor-pointer transition-all flex items-center justify-between ${
+                          className={`p-3 rounded-xl cursor-pointer transition-all flex items-center justify-between min-h-[46px] ${
                             selectedModelId === m.id
-                              ? 'bg-navy-50/70 border border-gima-navy text-gima-navy'
-                              : 'hover:bg-slate-50 text-slate-800'
+                              ? 'bg-blue-50 border border-gima-navy text-gima-navy'
+                              : 'hover:bg-slate-100 text-slate-900'
                           }`}
                         >
-                          <div className="flex items-center gap-2">
-                            <span className="flex h-5 w-5 items-center justify-center rounded bg-slate-200 text-slate-700 text-[10px] font-bold">
+                          <div className="flex items-center gap-2.5">
+                            <span className="flex h-6 w-6 items-center justify-center rounded bg-slate-200 text-slate-800 text-xs font-bold">
                               #{m.rank}
                             </span>
                             <div>
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-bold text-xs">{m.name}</span>
-                                <span className="text-[9px] px-1 py-0.2 rounded bg-slate-100 text-slate-600 font-semibold">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-sm">{m.name}</span>
+                                <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold">
                                   {m.qualityCategory}
                                 </span>
                               </div>
-                              <div className="text-[10px] text-slate-500">{m.referenceSupportText}</div>
+                              <div className="text-xs text-slate-600">{m.referenceSupportText}</div>
                             </div>
                           </div>
                           <div className="text-right">
-                            <span className="text-[11px] font-mono font-bold text-slate-800 block">
+                            <span className="text-xs sm:text-sm font-mono font-bold text-slate-900 block">
                               {m.costEstimateText}
                             </span>
-                            <span className="text-[9px] text-slate-400">{m.publisher}</span>
+                            <span className="text-xs text-slate-500">{m.publisher}</span>
                           </div>
                         </div>
                       ))}
@@ -1426,35 +1431,35 @@ function CreateCreativeContent() {
                 </div>
 
                 {/* Pre-Generation Pollen Cost Estimation Breakdown */}
-                <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-3 space-y-2">
-                  <div className="flex items-center justify-between text-xs font-bold text-amber-950">
-                    <span className="flex items-center gap-1">
-                      <Zap className="h-3.5 w-3.5 text-amber-600" />
+                <div className="rounded-xl border border-amber-300 bg-amber-50/70 p-4 space-y-2.5">
+                  <div className="flex items-center justify-between text-xs sm:text-sm font-bold text-amber-950">
+                    <span className="flex items-center gap-1.5">
+                      <Zap className="h-4 w-4 text-amber-600" />
                       <span>Estimated Pollen Usage Before Generation</span>
                     </span>
-                    <span className="text-[11px] font-mono text-slate-600">
+                    <span className="text-xs font-mono font-semibold text-slate-700">
                       {variationsCount} variation{variationsCount > 1 ? 's' : ''} requested
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 text-center pt-1 border-t border-amber-200/60 text-xs">
-                    <div className="bg-white/80 p-1.5 rounded-lg border border-amber-100">
-                      <div className="text-[10px] text-slate-500 font-medium">Per Image</div>
-                      <div className="font-bold text-slate-900 font-mono text-[11px]">{costCalculation.perImageText}</div>
+                  <div className="grid grid-cols-3 gap-2.5 text-center pt-1.5 border-t border-amber-200 text-sm">
+                    <div className="bg-white p-2 rounded-xl border border-amber-200">
+                      <div className="text-xs text-slate-600 font-medium">Per Image</div>
+                      <div className="font-bold text-slate-900 font-mono text-xs sm:text-sm">{costCalculation.perImageText}</div>
                     </div>
-                    <div className="bg-white/80 p-1.5 rounded-lg border border-amber-100">
-                      <div className="text-[10px] text-slate-500 font-medium">Total ({variationsCount}x)</div>
-                      <div className="font-bold text-amber-900 font-mono text-[11px]">{costCalculation.totalText}</div>
+                    <div className="bg-white p-2 rounded-xl border border-amber-200">
+                      <div className="text-xs text-slate-600 font-medium">Total ({variationsCount}x)</div>
+                      <div className="font-bold text-amber-950 font-mono text-xs sm:text-sm">{costCalculation.totalText}</div>
                     </div>
-                    <div className="bg-white/80 p-1.5 rounded-lg border border-amber-100">
-                      <div className="text-[10px] text-slate-500 font-medium">Remaining Bal.</div>
-                      <div className="font-bold text-slate-900 font-mono text-[11px]">{costCalculation.remainingText}</div>
+                    <div className="bg-white p-2 rounded-xl border border-amber-200">
+                      <div className="text-xs text-slate-600 font-medium">Remaining Bal.</div>
+                      <div className="font-bold text-slate-900 font-mono text-xs sm:text-sm">{costCalculation.remainingText}</div>
                     </div>
                   </div>
 
                   {!costCalculation.isSufficientBalance && (
-                    <div className="text-[11px] text-red-700 font-semibold flex items-center gap-1 pt-1">
-                      <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                    <div className="text-xs sm:text-sm text-red-800 font-bold flex items-center gap-1.5 pt-1">
+                      <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
                       <span>Insufficient Pollen balance. Consider selecting Z-Image Turbo (~0.004 Pollen) or Demo Preview.</span>
                     </div>
                   )}
@@ -1464,13 +1469,13 @@ function CreateCreativeContent() {
 
             {/* MODE CONTENT: FREE MODELS */}
             {generationMode === 'free-models' && (
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 space-y-3 animate-fade-in text-xs">
+              <div className="rounded-xl border border-emerald-300 bg-emerald-50/60 p-4.5 space-y-3.5 animate-fade-in text-sm">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-emerald-950 flex items-center gap-1.5">
-                    <ShieldCheck className="h-4 w-4 text-emerald-700" />
+                  <span className="font-bold text-emerald-950 flex items-center gap-2">
+                    <ShieldCheck className="h-5 w-5 text-emerald-700" />
                     <span>Hybrid Free Poster Engine</span>
                   </span>
-                  <span className="text-[10px] font-bold bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full">
+                  <span className="text-xs font-bold bg-emerald-200 text-emerald-950 px-2.5 py-0.5 rounded-full">
                     {serverProviderStatus?.cloudflareConfigured
                       ? 'Free Daily Cloudflare Allowance'
                       : 'Verified Zero Cost'}
@@ -1478,73 +1483,62 @@ function CreateCreativeContent() {
                 </div>
 
                 {serverProviderStatus?.cloudflareConfigured ? (
-                  <div className="space-y-2.5">
-                    <div className="p-3 rounded-lg bg-white border border-emerald-300 shadow-xs space-y-1.5">
+                  <div className="space-y-3">
+                    <div className="p-3.5 rounded-xl bg-white border border-emerald-300 shadow-subtle space-y-2">
                       <div className="flex items-center justify-between">
                         <div>
-                          <span className="font-bold text-slate-900 text-sm">
+                          <span className="font-bold text-slate-900 text-base">
                             FLUX.2 Klein 9B
                           </span>
-                          <span className="text-[10px] text-slate-500 font-mono ml-2">
+                          <span className="text-xs text-slate-600 font-mono ml-2 font-medium">
                             {serverProviderStatus?.cloudflareModel || '@cf/black-forest-labs/flux-2-klein-9b'}
                           </span>
                         </div>
-                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-300">
                           Active Provider
                         </span>
                       </div>
-                      <p className="text-slate-600 text-xs leading-relaxed">
+                      <p className="text-slate-700 text-sm leading-relaxed">
                         Photorealistic healthcare visual plate generated on Cloudflare Workers AI using the FLUX.2 Klein 9B model. Finished by GIMA Studio Poster Engine with authoritative typography, verified official branding, and course-specific curriculum points.
                       </p>
-                      <div className="flex items-center justify-between text-[11px] text-slate-600 pt-1.5 border-t border-slate-100">
+                      <div className="flex items-center justify-between text-xs sm:text-sm text-slate-700 pt-2 border-t border-slate-100 font-medium">
                         <span>Free Allowance: <strong>10,000 Neurons/day (~7 images/day)</strong></span>
-                        <span className="text-emerald-700 font-semibold">Resets daily at 00:00 UTC</span>
-                      </div>
-                      <div className="text-[10px] text-slate-400 italic">
-                        Check Cloudflare dashboard for live remaining quota. No payment method required within daily allowance.
+                        <span className="text-emerald-800 font-bold">Resets daily at 00:00 UTC</span>
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-2.5">
-                    <p className="text-slate-600 text-xs leading-relaxed">
+                  <div className="space-y-3">
+                    <p className="text-slate-700 text-sm leading-relaxed">
                       Generates authentic healthcare visual artwork via the verified zero-cost free model, then composes publication-grade GIMA marketing posters with vector branding, official logo, clean typography, structured highlight cards, and high-impact CTA.
                     </p>
                     {verifiedFreeModels.length > 0 ? (
                       verifiedFreeModels.map((fm) => (
-                        <div key={fm.id} className="p-2.5 rounded-lg bg-white border border-emerald-200 flex items-center justify-between">
+                        <div key={fm.id} className="p-3 rounded-xl bg-white border border-emerald-300 flex items-center justify-between">
                           <div>
-                            <div className="font-bold text-slate-900">{fm.name}</div>
-                            <div className="text-[10px] text-slate-500">
+                            <div className="font-bold text-slate-900 text-sm sm:text-base">{fm.name}</div>
+                            <div className="text-xs text-slate-600 font-medium mt-0.5">
                               {fm.publisher} • Visual Plate Generator (0 Pollen) + Studio Poster Composer
                             </div>
                           </div>
-                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded border border-emerald-200">
+                          <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-300">
                             Active Free Model
                           </span>
                         </div>
                       ))
                     ) : (
-                      <div className="p-2.5 rounded-lg bg-white border border-emerald-200 flex items-center justify-between">
+                      <div className="p-3 rounded-xl bg-white border border-emerald-300 flex items-center justify-between">
                         <div>
-                          <div className="font-bold text-slate-900">SDXL Lightning Free</div>
-                          <div className="text-[10px] text-slate-500">
+                          <div className="font-bold text-slate-900 text-sm sm:text-base">SDXL Lightning Free</div>
+                          <div className="text-xs text-slate-600 font-medium mt-0.5">
                             Community Zero-Cost Diffusion + Studio Poster Composer
                           </div>
                         </div>
-                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded border border-emerald-200">
+                        <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-300">
                           Active Free Model
                         </span>
                       </div>
                     )}
-                    <div className="p-2.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-900 space-y-1">
-                      <div className="font-bold text-[11px] flex items-center gap-1">
-                        <span>💡 Enable FLUX.2 Klein 9B via Cloudflare Workers AI</span>
-                      </div>
-                      <p className="text-[11px] text-blue-800 leading-relaxed">
-                        Cloudflare Workers AI includes <strong>10,000 Neurons/day free</strong> (~7 images/day) at zero out-of-pocket cost. To activate FLUX.2 Klein 9B, add <code>CLOUDFLARE_ACCOUNT_ID</code> and <code>CLOUDFLARE_API_TOKEN</code> in your server <code>.env.local</code>.
-                      </p>
-                    </div>
                   </div>
                 )}
               </div>
@@ -1552,30 +1546,30 @@ function CreateCreativeContent() {
 
             {/* MODE CONTENT: DEMO PREVIEW */}
             {generationMode === 'demo-preview' && (
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 space-y-2 animate-fade-in text-xs">
-                <span className="font-bold text-slate-800 flex items-center gap-1.5">
+              <div className="rounded-xl border border-slate-300 bg-slate-50 p-4 space-y-2 animate-fade-in text-sm">
+                <span className="font-bold text-slate-900 flex items-center gap-2">
                   <Eye className="h-4 w-4 text-gima-navy" />
                   <span>Deterministic Offline Demo Preview</span>
                 </span>
-                <p className="text-slate-600 text-[11px] leading-relaxed">
+                <p className="text-slate-600 text-xs sm:text-sm leading-relaxed">
                   Generates deterministic high-fidelity previews using authentic GIMA identity, Dr. Meschino portraits, and clinical citations without consuming Pollen balance. Transparently marked as a preview, not AI-generated.
                 </p>
               </div>
             )}
 
             {/* Variations Count Segmented Selector */}
-            <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-              <span className="text-xs font-semibold text-slate-700">Variations to Generate</span>
-              <div className="flex items-center gap-1.5">
+            <div className="flex items-center justify-between pt-3 border-t border-slate-200">
+              <span className="text-sm sm:text-base font-semibold text-slate-900">Variations to Generate</span>
+              <div className="flex items-center gap-2">
                 {[1, 2, 3, 4].map((num) => (
                   <button
                     type="button"
                     key={num}
                     onClick={() => setVariationsCount(num)}
-                    className={`h-8 w-8 rounded-lg text-xs font-bold transition-all ${
+                    className={`h-10 w-10 rounded-xl text-sm font-bold transition-all min-h-[40px] min-w-[40px] flex items-center justify-center ${
                       variationsCount === num
-                        ? 'bg-gima-navy text-white shadow-xs'
-                        : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                        ? 'bg-gima-navy text-white shadow-sm ring-1 ring-gima-navy-dark'
+                        : 'border border-slate-300 bg-white text-slate-800 hover:bg-slate-100'
                     }`}
                   >
                     {num}
@@ -1589,13 +1583,13 @@ function CreateCreativeContent() {
               type="button"
               disabled={isGenerating || (generationMode === 'pollinations' && !costCalculation.isSufficientBalance)}
               onClick={handleGenerateCreative}
-              className={`w-full py-3.5 px-4 rounded-xl text-white font-extrabold text-xs sm:text-sm tracking-wide shadow-md transition-all flex items-center justify-center gap-2 ${
+              className={`w-full py-4 px-6 rounded-2xl text-white font-extrabold text-sm sm:text-base tracking-wide shadow-card transition-all flex items-center justify-center gap-2.5 min-h-[54px] ${
                 isGenerating || (generationMode === 'pollinations' && !costCalculation.isSufficientBalance)
                   ? 'bg-slate-400 cursor-not-allowed opacity-75'
-                  : 'bg-gima-navy hover:bg-navy-900 active:scale-[0.99] cursor-pointer'
+                  : 'bg-gima-navy hover:bg-gima-navy-light active:scale-[0.99] cursor-pointer'
               }`}
             >
-              <Sparkles className={`h-4 w-4 text-gima-gold-light ${isGenerating ? 'animate-spin' : ''}`} />
+              <Sparkles className={`h-5 w-5 text-gima-gold-light ${isGenerating ? 'animate-spin' : ''}`} />
               <span>
                 {isGenerating
                   ? `GENERATING ${variationsCount} VARIATION${variationsCount > 1 ? 'S' : ''}...`
@@ -1612,34 +1606,34 @@ function CreateCreativeContent() {
         {/* ========================================================
             RIGHT COLUMN: RESULTS, FIXED VERTICAL CARDS & BRIEF
             ======================================================== */}
-        <div className="lg:col-span-5 space-y-4">
+        <div className="lg:col-span-5 space-y-5">
           {/* Collapsible Knowledge Sources & Clinical Brief */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs space-y-2.5">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-subtle space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                <BookOpen className="h-3.5 w-3.5 text-gima-navy" />
+              <span className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+                <BookOpen className="h-4 w-4 text-gima-navy" />
                 <span>Live GIMA Clinical Brief</span>
               </span>
               <button
                 type="button"
                 onClick={() => setShowKnowledgeBrief(!showKnowledgeBrief)}
-                className="text-[11px] font-bold text-gima-navy hover:underline"
+                className="text-xs sm:text-sm font-bold text-gima-navy hover:underline min-h-[36px] flex items-center"
               >
                 {showKnowledgeBrief ? 'Collapse' : 'Expand'}
               </button>
             </div>
 
             {showKnowledgeBrief && (
-              <div className="space-y-2 text-xs animate-fade-in pt-1 border-t border-slate-100">
-                <div className="text-[11px] text-slate-600">
-                  <strong className="text-slate-800">Target:</strong> {course} ({campaignType})
+              <div className="space-y-2 text-sm animate-fade-in pt-2 border-t border-slate-100">
+                <div className="text-xs sm:text-sm text-slate-700">
+                  <strong className="text-slate-900 font-bold">Target:</strong> {course} ({campaignType})
                 </div>
-                <div className="text-[11px] text-slate-600">
-                  <strong className="text-slate-800">Style:</strong> {style} ({aspectRatio})
+                <div className="text-xs sm:text-sm text-slate-700">
+                  <strong className="text-slate-900 font-bold">Style:</strong> {style} ({aspectRatio})
                 </div>
-                <div className="text-[11px] text-slate-500">
-                  <strong className="text-slate-700">Verified Sources ({retrievedKnowledge.length}):</strong>
-                  <ul className="list-disc pl-4 space-y-0.5 mt-1 text-[10px]">
+                <div className="text-xs sm:text-sm text-slate-600">
+                  <strong className="text-slate-900 font-bold">Verified Sources ({retrievedKnowledge.length}):</strong>
+                  <ul className="list-disc pl-5 space-y-1 mt-1 text-xs text-slate-600">
                     {retrievedKnowledge.slice(0, 3).map((k, i) => (
                       <li key={i} className="truncate">
                         {k.sourceTitle || k.documentName || k.subject || 'GIMA Clinical Document'}
@@ -1653,7 +1647,7 @@ function CreateCreativeContent() {
 
           {/* Performance & Latency Bar */}
           {(timeToFirstImage !== null || totalGenerationTime !== null) && (
-            <div className="rounded-xl bg-slate-900 text-white px-3 py-2 text-[11px] flex items-center justify-between font-mono">
+            <div className="rounded-xl bg-slate-900 text-white px-4 py-2.5 text-xs sm:text-sm flex items-center justify-between font-mono">
               <span className="text-slate-400">Generation Performance:</span>
               <div className="flex items-center gap-3">
                 {timeToFirstImage !== null && (
@@ -1662,7 +1656,7 @@ function CreateCreativeContent() {
                   </span>
                 )}
                 {totalGenerationTime !== null && (
-                  <span className="text-slate-300">
+                  <span className="text-slate-300 font-semibold">
                     Total: {(totalGenerationTime / 1000).toFixed(2)}s
                   </span>
                 )}
@@ -1671,17 +1665,17 @@ function CreateCreativeContent() {
           )}
 
           {/* Fixed Vertical Result Cards Stack */}
-          <div className="flex flex-col space-y-4 w-full">
+          <div className="flex flex-col space-y-5 w-full">
             {slots.length === 0 ? (
               /* Idle Empty State */
-              <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 p-10 text-center space-y-3">
-                <div className="flex h-12 w-12 mx-auto items-center justify-center rounded-2xl bg-white border border-slate-200 shadow-xs">
-                  <Sparkles className="h-6 w-6 text-slate-400" />
+              <div className="rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50/60 p-10 text-center space-y-3">
+                <div className="flex h-14 w-14 mx-auto items-center justify-center rounded-2xl bg-white border border-slate-200 shadow-subtle">
+                  <Sparkles className="h-7 w-7 text-slate-400" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-slate-800">Studio Ready for Generation</h4>
-                  <p className="text-[11px] text-slate-500 max-w-xs mx-auto mt-0.5">
-                    Select your course, style directives and click <strong>Generate Creative</strong>.
+                  <h4 className="text-base font-bold text-slate-900">Studio Ready for Generation</h4>
+                  <p className="text-xs sm:text-sm text-slate-600 max-w-sm mx-auto mt-1 leading-relaxed">
+                    Select your course, style directives and click <strong>Generate Creative</strong> to preview results here.
                   </p>
                 </div>
               </div>
@@ -1697,20 +1691,20 @@ function CreateCreativeContent() {
                     className="w-full rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-subtle relative"
                   >
                     {/* Slot Header */}
-                    <div className="px-3 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-xs">
-                      <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                    <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-sm">
+                      <span className="font-bold text-slate-900 flex items-center gap-2">
                         <span>Variation {slot.variationNumber}</span>
                         {slot.status === 'ready' && (
-                          <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded border ${
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
                             currentVar?.isHybridPoster
-                              ? 'text-teal-800 bg-teal-50 border-teal-200'
-                              : 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                              ? 'text-teal-900 bg-teal-50 border-teal-300'
+                              : 'text-emerald-950 bg-emerald-50 border-emerald-300'
                           }`}>
                             {currentVar?.isHybridPoster ? '★ Hybrid Poster (0 Pollen)' : 'Ready'}
                           </span>
                         )}
                         {slot.status === 'generating' && (
-                          <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200 animate-pulse">
+                          <span className="text-xs font-bold text-amber-950 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300 animate-pulse">
                             Synthesizing & Composing...
                           </span>
                         )}
@@ -1725,13 +1719,13 @@ function CreateCreativeContent() {
                                 [slot.index]: !prev[slot.index],
                               }))
                             }
-                            className="text-[10px] font-semibold text-gima-navy hover:underline bg-white px-2 py-0.5 rounded border border-slate-200 shadow-2xs"
+                            className="text-xs font-bold text-gima-navy hover:underline bg-white px-2.5 py-1 rounded-lg border border-slate-300 shadow-2xs"
                           >
-                            {showRawBg[slot.index] ? 'Show Poster' : 'Show Background Visual'}
+                            {showRawBg[slot.index] ? 'Show Poster' : 'Show Visual Artwork'}
                           </button>
                         )}
                         {slot.durationMs && (
-                          <span className="text-[10px] font-mono text-slate-500">
+                          <span className="text-xs font-mono text-slate-600 font-semibold">
                             {(slot.durationMs / 1000).toFixed(1)}s
                           </span>
                         )}
@@ -1743,9 +1737,9 @@ function CreateCreativeContent() {
                       {slot.status === 'generating' && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center space-y-3 text-white overflow-hidden">
                           {/* Inner Shimmer Animation */}
-                          <div className="skeleton-card-inner-shimmer" />
-                          <Sparkles className="h-6 w-6 text-gima-gold-light animate-spin" />
-                          <span className="text-xs font-semibold text-slate-200 tracking-wide">
+                          <div className="animate-internal-shimmer absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none" />
+                          <Sparkles className="h-7 w-7 text-gima-gold-light animate-spin" />
+                          <span className="text-sm font-semibold text-slate-200 tracking-wide">
                             {generationMode === 'free-models'
                               ? `Synthesizing Visual Plate & Composing Poster...`
                               : `Synthesizing Variation ${slot.variationNumber}...`}
@@ -1755,13 +1749,13 @@ function CreateCreativeContent() {
 
                       {slot.status === 'error' && (
                         <div className="p-6 text-center space-y-3 text-white">
-                          <AlertCircle className="h-7 w-7 text-red-400 mx-auto" />
-                          <div className="text-xs font-bold text-red-200">Generation Failed</div>
-                          <div className="text-[11px] text-slate-300 max-w-xs">{slot.error || 'Server error occurred'}</div>
+                          <AlertCircle className="h-8 w-8 text-red-400 mx-auto" />
+                          <div className="text-sm font-bold text-red-200">Generation Failed</div>
+                          <div className="text-xs text-slate-300 max-w-xs">{slot.error || 'Server error occurred'}</div>
                           <button
                             type="button"
                             onClick={() => handleRetrySlot(slot.index)}
-                            className="px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white font-bold text-xs"
+                            className="px-4 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white font-bold text-xs sm:text-sm min-h-[38px]"
                           >
                             Retry This Slot
                           </button>
@@ -1769,7 +1763,7 @@ function CreateCreativeContent() {
                       )}
 
                       {slot.status === 'ready' && currentVar && (
-                        <div className="relative w-full h-full group">
+                        <div className="relative w-full h-full">
                           <img
                             src={
                               currentVar.isHybridPoster && showRawBg[slot.index] && currentVar.rawBackgroundUrl
@@ -1779,67 +1773,80 @@ function CreateCreativeContent() {
                             alt={`Variation ${slot.variationNumber}`}
                             className="w-full h-full object-cover"
                           />
-
-                          {/* Floating Glass Action Bar on Hover */}
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 p-4">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const dlUrl =
-                                  currentVar.isHybridPoster && showRawBg[slot.index] && currentVar.rawBackgroundUrl
-                                    ? currentVar.rawBackgroundUrl
-                                    : currentVar.previewImageUrl;
-                                handleDownload(dlUrl, slot.variationNumber);
-                              }}
-                              title="Download Image"
-                              className="p-2 rounded-xl bg-white/90 text-slate-800 hover:bg-white shadow-md transition-all"
-                            >
-                              <Download className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setLightboxIndex(slot.index)}
-                              title="Fullscreen"
-                              className="p-2 rounded-xl bg-white/90 text-slate-800 hover:bg-white shadow-md transition-all"
-                            >
-                              <Maximize2 className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleSaveSlotToProjects(slot)}
-                              title="Save to Projects"
-                              className="p-2 rounded-xl bg-white/90 text-slate-800 hover:bg-white shadow-md transition-all"
-                            >
-                              <FolderPlus className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleUseAsReference(currentVar.previewImageUrl)}
-                              title="Use as Reference"
-                              className="p-2 rounded-xl bg-white/90 text-slate-800 hover:bg-white shadow-md transition-all"
-                            >
-                              <ImageIcon className="h-4 w-4" />
-                            </button>
-                          </div>
                         </div>
                       )}
                     </div>
 
+                    {/* ALWAYS VISIBLE TOUCH-FRIENDLY ACTION TOOLBAR (Accessible on mobile & desktop) */}
+                    {slot.status === 'ready' && currentVar && (
+                      <div className="p-3 bg-white border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const dlUrl =
+                                currentVar.isHybridPoster && showRawBg[slot.index] && currentVar.rawBackgroundUrl
+                                  ? currentVar.rawBackgroundUrl
+                                  : currentVar.previewImageUrl;
+                              handleDownload(dlUrl, slot.variationNumber);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs sm:text-sm font-bold transition-colors min-h-[38px]"
+                            title="Download PNG image"
+                          >
+                            <Download className="h-4 w-4" />
+                            <span>Download</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setLightboxIndex(slot.index)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs sm:text-sm font-bold transition-colors min-h-[38px]"
+                            title="View Fullscreen"
+                          >
+                            <Maximize2 className="h-4 w-4" />
+                            <span>Fullscreen</span>
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleSaveSlotToProjects(slot)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-800 text-xs sm:text-sm font-bold transition-colors min-h-[38px]"
+                            title="Save to Projects"
+                          >
+                            <FolderPlus className="h-4 w-4 text-gima-navy" />
+                            <span>Save</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleUseAsReference(currentVar.previewImageUrl)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-800 text-xs sm:text-sm font-bold transition-colors min-h-[38px]"
+                            title="Use as reference image"
+                          >
+                            <ImageIcon className="h-4 w-4 text-gima-navy" />
+                            <span className="hidden sm:inline">Reference</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Inline Refinement Drawer */}
                     {slot.status === 'ready' && currentVar && (
-                      <div className="p-3 bg-slate-50 border-t border-slate-100 flex items-center gap-2">
+                      <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center gap-2">
                         <input
                           type="text"
                           placeholder="Quick refine instruction for this image..."
                           value={refiningSlotIndex === slot.index ? refinementInput : ''}
                           onFocus={() => setRefiningSlotIndex(slot.index)}
                           onChange={(e) => setRefinementInput(e.target.value)}
-                          className="flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-800 focus:outline-none"
+                          className="flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-gima-navy"
                         />
                         <button
                           type="button"
                           onClick={() => handleRefineVariation(slot.index)}
-                          className="px-2.5 py-1 rounded-lg bg-gima-navy text-white text-xs font-bold hover:bg-navy-900"
+                          className="px-3.5 py-2 rounded-xl bg-gima-navy text-white text-xs sm:text-sm font-bold hover:bg-gima-navy-light min-h-[38px]"
                         >
                           Refine
                         </button>
@@ -1871,19 +1878,22 @@ function CreateCreativeContent() {
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-fade-in"
           onClick={() => setLightboxIndex(null)}
+          role="dialog"
+          aria-label="Image fullscreen lightbox"
         >
           <div className="relative max-h-[90vh] max-w-[90vw]" onClick={(e) => e.stopPropagation()}>
             <img
               src={slots[lightboxIndex].variation!.previewImageUrl}
               alt="Fullscreen preview"
-              className="max-h-[85vh] max-w-[85vw] object-contain rounded-xl shadow-2xl"
+              className="max-h-[85vh] max-w-[85vw] object-contain rounded-2xl shadow-2xl"
             />
             <button
               type="button"
               onClick={() => setLightboxIndex(null)}
-              className="absolute top-2 right-2 p-2 rounded-full bg-black/60 text-white hover:bg-black"
+              className="absolute top-3 right-3 p-2.5 rounded-full bg-black/70 text-white hover:bg-black transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+              aria-label="Close fullscreen"
             >
-              <X className="h-5 w-5" />
+              <X className="h-6 w-6" />
             </button>
           </div>
         </div>

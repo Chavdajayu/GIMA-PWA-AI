@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -13,15 +13,15 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  ShieldCheck,
   User,
-  X,
-  ExternalLink
+  X
 } from 'lucide-react';
 
 interface SidebarProps {
   mobileOpen?: boolean;
   onMobileClose?: () => void;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 const navItems = [
@@ -34,38 +34,48 @@ const navItems = [
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
-export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onMobileClose }) => {
+export const Sidebar: React.FC<SidebarProps> = ({
+  mobileOpen = false,
+  onMobileClose,
+  collapsed = false,
+  onToggleCollapse,
+}) => {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
 
   return (
     <>
       {/* Mobile Backdrop */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm lg:hidden transition-opacity"
           onClick={onMobileClose}
+          aria-hidden="true"
         />
       )}
 
       {/* Sidebar Container */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 flex flex-col border-r border-gima-slate-border bg-white transition-all duration-300 ${
+        className={`fixed top-0 bottom-0 left-0 z-50 flex flex-col border-r border-slate-200 bg-white transition-all duration-300 ease-in-out ${
           collapsed ? 'w-20' : 'w-64'
-        } ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
+        } ${mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}`}
+        aria-label="Main Navigation"
       >
         {/* Header / Brand Logo */}
-        <div className="flex h-16 items-center justify-between border-b border-gima-slate-border px-4">
-          <Link href="/" className="flex items-center gap-3 overflow-hidden" onClick={onMobileClose}>
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gima-navy text-white shadow-subtle ring-1 ring-gima-navy-dark">
-              <span className="font-semibold text-lg text-gima-gold-light tracking-wider">G</span>
+        <div className="flex h-18 items-center justify-between border-b border-slate-200 px-4 py-3">
+          <Link
+            href="/"
+            className="flex items-center gap-3 overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-gima-navy rounded-lg p-1"
+            onClick={onMobileClose}
+          >
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gima-navy text-white shadow-subtle ring-1 ring-gima-navy-dark">
+              <span className="font-bold text-xl text-gima-gold-light tracking-wide">G</span>
             </div>
             {!collapsed && (
               <div className="flex flex-col truncate">
-                <span className="font-bold text-sm tracking-tight text-gima-navy-dark">
+                <span className="font-extrabold text-base tracking-tight text-gima-navy-dark">
                   GIMA AI STUDIO
                 </span>
-                <span className="text-[10px] text-gima-slate-muted font-medium truncate">
+                <span className="text-xs text-slate-600 font-medium truncate">
                   Creative Intelligence
                 </span>
               </div>
@@ -75,8 +85,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onMobileCl
           {/* Mobile close button */}
           <button
             onClick={onMobileClose}
-            className="rounded p-1 text-gima-slate-muted hover:bg-slate-100 lg:hidden"
-            aria-label="Close menu"
+            className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 lg:hidden focus-visible:ring-2 focus-visible:ring-gima-navy min-h-[44px] min-w-[44px] flex items-center justify-center"
+            aria-label="Close sidebar menu"
           >
             <X className="h-5 w-5" />
           </button>
@@ -93,22 +103,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onMobileCl
                 key={item.href}
                 href={item.href}
                 onClick={onMobileClose}
-                className={`group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
+                className={`group flex items-center gap-3.5 rounded-xl px-3.5 py-3 text-sm sm:text-base font-semibold transition-all min-h-[46px] ${
                   isActive
                     ? 'bg-gima-navy text-white shadow-sm'
                     : item.highlight
-                    ? 'bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-200/60'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    ? 'bg-amber-50 text-amber-950 hover:bg-amber-100/90 border border-amber-300'
+                    : 'text-slate-700 hover:bg-slate-100 hover:text-slate-950'
                 }`}
                 title={collapsed ? item.label : undefined}
+                aria-current={isActive ? 'page' : undefined}
               >
                 <Icon
-                  className={`h-4 w-4 shrink-0 transition-colors ${
+                  className={`h-5 w-5 shrink-0 transition-colors ${
                     isActive
                       ? 'text-gima-gold-light'
                       : item.highlight
                       ? 'text-amber-700'
-                      : 'text-slate-400 group-hover:text-slate-700'
+                      : 'text-slate-500 group-hover:text-slate-900'
                   }`}
                 />
                 {!collapsed && (
@@ -117,7 +128,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onMobileCl
                   </span>
                 )}
                 {!collapsed && item.highlight && !isActive && (
-                  <span className="ml-auto rounded-full bg-amber-200/70 px-1.5 py-0.5 text-[9px] font-bold text-amber-900 uppercase">
+                  <span className="ml-auto rounded-full bg-amber-200/90 px-2 py-0.5 text-xs font-bold text-amber-950 uppercase tracking-wide">
                     New
                   </span>
                 )}
@@ -127,49 +138,52 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onMobileCl
         </nav>
 
         {/* Bottom Section */}
-        <div className="border-t border-gima-slate-border p-3 space-y-2">
+        <div className="border-t border-slate-200 p-3 space-y-2.5 bg-slate-50/60">
           {/* Status Indicator */}
           {!collapsed ? (
-            <div className="rounded-lg bg-emerald-50/80 border border-emerald-200/70 p-2.5">
+            <div className="rounded-xl bg-emerald-50 border border-emerald-300/80 p-3">
               <div className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-emerald-600 animate-pulse" />
-                <span className="text-[11px] font-semibold text-emerald-950">
+                <div className="h-2.5 w-2.5 rounded-full bg-emerald-600 animate-pulse" />
+                <span className="text-xs font-bold text-emerald-950">
                   GIMA Knowledge Synced
                 </span>
               </div>
-              <p className="mt-1 text-[10px] text-emerald-800">
+              <p className="mt-1 text-xs text-emerald-900 font-medium">
                 12 PDFs & 27 Site routes active
               </p>
             </div>
           ) : (
-            <div className="flex justify-center py-1" title="Knowledge Foundation Active">
-              <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            <div className="flex justify-center py-2" title="GIMA Knowledge Synced (12 PDFs & 27 Site routes active)">
+              <div className="h-3 w-3 rounded-full bg-emerald-600 ring-4 ring-emerald-100 animate-pulse" />
             </div>
           )}
 
           {/* Admin User Card */}
-          <div className="flex items-center gap-2.5 rounded-lg px-2 py-2 hover:bg-slate-50 transition-colors">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 text-slate-700">
+          <div className="flex items-center gap-3 rounded-xl px-2.5 py-2 hover:bg-slate-100 transition-colors">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-200 text-slate-800 font-bold">
               <User className="h-4 w-4" />
             </div>
             {!collapsed && (
               <div className="flex-1 min-w-0">
-                <p className="truncate text-xs font-semibold text-slate-800">GIMA Marketing Admin</p>
-                <p className="truncate text-[10px] text-slate-500">Internal Creative Studio</p>
+                <p className="truncate text-sm font-bold text-slate-900">GIMA Marketing Admin</p>
+                <p className="truncate text-xs text-slate-600 font-medium">Internal Creative Studio</p>
               </div>
             )}
           </div>
 
           {/* Desktop Collapse Toggle */}
-          <div className="hidden pt-1 lg:flex justify-end">
-            <button
-              onClick={() => setCollapsed(!collapsed)}
-              className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            >
-              {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-            </button>
-          </div>
+          {onToggleCollapse && (
+            <div className="hidden pt-1 lg:flex justify-end">
+              <button
+                onClick={onToggleCollapse}
+                className="rounded-lg p-2 text-slate-500 hover:bg-slate-200 hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-gima-navy min-h-[40px] min-w-[40px] flex items-center justify-center transition-colors"
+                aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              >
+                {collapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
+              </button>
+            </div>
+          )}
         </div>
       </aside>
     </>

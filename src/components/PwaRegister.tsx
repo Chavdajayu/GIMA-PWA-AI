@@ -45,24 +45,28 @@ export const PwaRegister = () => {
   if (!showInstallBanner) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-elevated animate-fade-in max-w-sm">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gima-navy text-white">
-        <Download className="h-4 w-4 text-gima-gold-light" />
+    <div
+      role="banner"
+      aria-label="PWA install banner"
+      className="fixed bottom-5 right-5 z-50 flex items-center gap-3.5 rounded-2xl border border-slate-300 bg-white p-4 shadow-elevated animate-fade-in max-w-md"
+    >
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gima-navy text-white shadow-subtle">
+        <Download className="h-5 w-5 text-gima-gold-light" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-xs font-semibold text-slate-900">Install GIMA AI Studio</p>
-        <p className="text-[11px] text-slate-500">Access creative suite directly from desktop</p>
+        <p className="text-sm sm:text-base font-bold text-slate-900">Install GIMA AI Studio</p>
+        <p className="text-xs sm:text-sm text-slate-600 font-medium mt-0.5">Access creative suite directly from desktop</p>
       </div>
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-2">
         <button
           onClick={handleInstallClick}
-          className="rounded-lg bg-gima-navy px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-gima-navy-light"
+          className="rounded-xl bg-gima-navy px-3.5 py-2 text-xs sm:text-sm font-bold text-white hover:bg-gima-navy-light transition-colors min-h-[38px]"
         >
           Install
         </button>
         <button
           onClick={() => setShowInstallBanner(false)}
-          className="rounded-lg px-2 py-1.5 text-xs text-slate-400 hover:text-slate-700"
+          className="rounded-xl px-2.5 py-2 text-xs sm:text-sm font-semibold text-slate-500 hover:text-slate-900 min-h-[38px]"
         >
           Dismiss
         </button>
